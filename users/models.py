@@ -1,0 +1,15 @@
+from django.db import models
+
+from authentication.views import User
+
+# Create your models here.
+class UserProfile(models.Model):
+    user = models.ForeignKey(User, verbose_name=("usuerio id"), on_delete=models.CASCADE, related_name='profile')
+    distance_traveled_km = models.IntegerField(null=True, blank=True)
+    profile_thum_path = models.CharField(null=True, blank=True)
+    routes_created = models.IntegerField(default=0)
+    spot_created = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    
