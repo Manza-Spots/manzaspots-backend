@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    environment:
+      POSTGRES_DB: manza_spot_gis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "True"
+      DB_NAME: manza_spot_gis
+      DB_USER: postgres
+      DB_PASSWORD: admin123
+      DB_HOST: db
+      DB_PORT: 5432
+      ALLOWED_HOSTS: "*"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

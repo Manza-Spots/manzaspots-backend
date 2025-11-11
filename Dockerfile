@@ -5,6 +5,14 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# Instalar dependencias del sistema para GDAL
+RUN apt-get update && apt-get install -y \
+    gdal-bin \
+    libgdal-dev \
+    binutils \
+    libproj-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Directorio de trabajo dentro del contenedor
 WORKDIR /app
 
