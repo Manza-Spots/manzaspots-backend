@@ -49,3 +49,10 @@ class PasswordResetEmail:
         subject = "Restablecimiento de contraseña"
         template_name = 'emails/password_reset.html'
         EmailService.send_template_email(subject, to_email, template_name, **context)
+        
+class ConfirmUserEmail:
+    @staticmethod
+    def send_email(to_email, **context):
+        subject = "Confirmacion de cuenta"
+        template_name = 'emails/confirm_email.html'
+        EmailService.send_template_email(subject, to_email, template_name, **context)  

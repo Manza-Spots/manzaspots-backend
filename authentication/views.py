@@ -81,19 +81,36 @@ class PasswordResetConfirmView(SentryErrorHandlerMixin, generics.GenericAPIView)
         )
         
         self.logger.info(f'Contraseña restablecida exitosamente, id:{user.id},{user.email} ')
-           
-class GoogleLogin(SocialLoginView):
+        
+class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
     client_class = OAuth2Client
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
+    sentry_operation_name = "google_authentication"
+
 
     def post(self, request, *args, **kwargs):
+        return self.handle_with_sentry(
+            operation=self._google_login,
+            request=request,
+            tags={
+                'app': __name__,
+                'authenticated': request.user.is_authenticated,
+                'component': 'GoogleLogin._google_login',
+            },
+            success_message={
+                'detail': 'Autenticación con Google exitosa.'
+            },
+            success_status=status.HTTP_200_OK
+        )
+    
+    def _google_login(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         
         if response.status_code == 200:
             user = self.user
             refresh = RefreshToken.for_user(user)
-            
+            self.logger.info(f'Se a creado un nuevo usuario ({user.username}, a partir de google authentication)')
             response.data = {
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
@@ -101,5 +118,28 @@ class GoogleLogin(SocialLoginView):
         
         return response
     
-def trigger_error(request):
-    division_by_zero = 1 / 0
+    
+class LoggerOnlyTestView(APIView):
+    """
+    Vista simple para probar el logger sin Sentry ni mixins.
+    """
+
+    def get(self, request, *args, **kwargs):
+        logger = logging.getLogger(__name__)  # obtiene el logger del módulo actual
+        # print(__name__)
+        # print('pepe pica pieda prm')
+        logger.debug("🔍 DEBUG: Entrando al método GET.")
+        logger.info("ℹ️ INFO: Probando logging básico.")
+        logger.warning("⚠️ WARNING: Esto es una advertencia de prueba.")
+        logger.error("❌ ERROR: Esto es un error simulado (sin excepción).")
+
+        try:
+            1 / 0  # lanza una excepción para probar traceback
+        except Exception as e:
+            logger.exception("💥 EXCEPTION: Se capturó una excepción de prueba.")
+
+        return Response(
+            {"detail": "Logger probado. Revisa la consola o archivo de logs."},
+            status=status.HTTP_200_OK
+        )
+

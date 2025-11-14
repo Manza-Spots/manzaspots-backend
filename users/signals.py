@@ -11,4 +11,4 @@ def crear_perfil_usuario(sender, instance, created, **kwargs):
     
     if created:  
         UserProfile.objects.create(user=instance)
-        print(f"✅ Perfil creado para {instance.username}")
+        print(f"Perfil creado para {instance.username}")

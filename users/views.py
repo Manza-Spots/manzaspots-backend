@@ -1,25 +1,31 @@
 
+import logging
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes,authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.models import User
-
+from core.mixins import SentryErrorHandlerMixin
 from users.models import UserProfile
-from .serializers import (UserCreateSerializer, UserSerializer, 
+from .serializers import (UserCreateSerializer, UserProfileSerializer, UserSerializer, 
                           UserUpdateSerializer)
+from core.services.email_service import ConfirmUserEmail
+from django.conf import settings
+from django.core.mail import send_mail
+from users.services import UsersService
+from rest_framework import viewsets, permissions, generics
+from rest_framework.exceptions import PermissionDenied
 
-
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
     """
     ViewSet para manejar usuarios.
     
     Endpoints:
-    - GET /users/                 -> Listar usuarios
-    - POST /users/                -> Crear usuario
-    - Get /users/me               -> Obtener usuario actual
-    - GET /users/{id}/            -> Obtener usuario
-    - PUT /users/{id}/            -> Actualizar usuario completo
+    - GET /users/                 -> Listar usuarios *
+    - POST /users/                -> Crear usuario 
+    - Get /users/me               -> Obtener usuario actual *
+    - GET /users/{id}/            -> Obtener usuario *
+    - PUT /users/{id}/            -> Actualizar usuario completo *
     - PATCH /users/{id}/          -> Actualizar usuario parcial
     - DELETE /users/{id}/         -> Eliminar usuario
     - POST /users/{id}/activate/  -> Activar usuario
@@ -51,6 +57,45 @@ class UserViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.save()
     
+    def create(self, request, *args, **kwargs):
+        return self.handle_with_sentry(
+            operation=self._create,
+            request=request,
+            tags={
+                'app': __name__,
+                'authenticated': request.user.is_authenticated,
+                'component': 'UserViewSet._create',
+            },
+            success_message={
+                'detail': 'Usuario creado. Revisa tu correo para verificar la cuenta.'
+            },
+            success_status=status.HTTP_201_CREATED
+        )
+    
+    def _create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save(is_active=False)  
+
+        token = UsersService.generate_email_token(user)
+
+        verify_url = f"/users/verify-email?token={token}"
+        confirm_url = request.build_absolute_uri(verify_url)
+                        
+        ConfirmUserEmail.send_email(
+            to_email=user.email, 
+            confirm_url=confirm_url, 
+            nombre=user.username
+        )
+        self.logger.info(f'Se a creado el usuario inactivo {user.username}, y enviado el correo de confirmacion a {user.email}')
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            {"detail": "Usuario creado. Revisa tu correo para verificar la cuenta."},
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+    
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def activate(self, request, pk=None):
         """
@@ -60,6 +105,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         user.is_active = True
         user.save()
+        self.logger.info(f'Se activo la cuenta del usuario {user.username}')
         return Response(
             {"detail": f"Usuario {user.username} activado."},
             status=status.HTTP_200_OK
@@ -74,6 +120,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         user.is_active = False
         user.save()
+        self.logger.info(f'Se activo la cuenta del usuario {user.username}')
         return Response(
             {"detail": f"Usuario {user.username} desactivado."},
             status=status.HTTP_200_OK
@@ -105,16 +152,49 @@ class UserViewSet(viewsets.ModelViewSet):
         retorna los datos del usuario actual (sesion iniciada)
         """
         serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+        return Response(serializer.data) 
         
 
-class UserProfileViewSet(viewsets.ModelViewSet):
-    """
-        Endpoints:
-    - GET /users/profiles                 -> Listar perfiles
-    - GET /users/{id}/profiles            -> Obtener perfil
-    - GET /users/profiles/me              -> Obtener perfil del usuario actual
-    - PUT /users/{id}/profiles            -> Actualizar perfil completo
-    - PATCH /users/{id}/profiles          -> Actualizar perfil parcial
-    """
-    queryset = UserProfile.objects.all()
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def verify_email(request):
+    handler = SentryErrorHandlerMixin()  
+    handler._logger = logging.getLogger(__name__)
+    
+    def operation(_):
+        token = request.query_params.get('token')
+        
+        if not token:
+            return Response({'detail': 'Token no proporcionado.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_id = UsersService.verify_email_token(token)
+        if not user_id:
+            return Response({'detail': 'Token inválido o expirado.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if user.is_active:
+            return Response({'detail': 'El correo ya fue verificado.'}, status=status.HTTP_409_CONFLICT)
+                
+        user.is_active = True
+        user.save()
+        handler.logger.info(f'Se confirmo el correo de {user.username}, ahora su cuenta esta activa')
+        return Response({'detail': 'Correo verificado con éxito.'}, status=status.HTTP_200_OK)
+    
+    return handler.handle_with_sentry(
+        operation=operation,
+        request=request,
+        tags={'endpoint': 'verify_email'},
+        success_message={'detail': 'Correo verificado con éxito'}
+    )
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user.profile

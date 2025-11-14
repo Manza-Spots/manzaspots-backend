@@ -1,5 +1,5 @@
 """
-URL configuration for ManzaSpots_api project.
+URL configuration for manza_spots project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
@@ -20,10 +20,13 @@ from django.contrib import admin
 from django.urls import include, path
 from authentication.urls import authentications_patterns
 from users.urls import user_patterns
+
+api_v1_patterns = [
+    path('auth/', include(authentications_patterns)),
+    path('users/', include(user_patterns)), 
+]
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('auth/', include(authentications_patterns)),
-    path('users/', include(user_patterns)),  
-    path('accounts/', include('allauth.urls')),
-  
+    path('api/v1/', include(api_v1_patterns)),
 ]

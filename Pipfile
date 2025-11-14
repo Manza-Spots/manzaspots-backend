@@ -20,6 +20,7 @@ google-auth = "*"
 dj-rest-auth = {extras = ["with_social"], version = "*"}
 psycopg = "*"
 psycopg-binary = "*"
+itsdangerous = "*"
 
 [dev-packages]
 

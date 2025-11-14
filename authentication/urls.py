@@ -1,7 +1,7 @@
 from django.urls import include, path
 import rest_framework_simplejwt.views as jwt_views
 
-from authentication.views import GoogleLogin, PasswordResetConfirmView, PasswordResetRequestView, trigger_error
+from authentication.views import GoogleLogin, LoggerOnlyTestView, PasswordResetConfirmView, PasswordResetRequestView
 
 authentications_patterns = ([
     # url tokens
@@ -15,13 +15,10 @@ authentications_patterns = ([
     path('reset-password-confirm/', PasswordResetConfirmView.as_view(), name='reset-password-confirm'),
 
     #url providers
-    path('accounts/', include('allauth.urls')),  
+    # path('accounts/', include('allauth.urls')),  
     path('registration/', include('dj_rest_auth.registration.urls')),    
     path('google/', GoogleLogin.as_view(), name='google_login'),
       
-    #No seran utilizadas, al menos de que falle algunas de mis vistas, como salvavidas
-    path('', include('dj_rest_auth.urls')),
-    
     #pruebas de sentry
-    path('sentry-debug/', trigger_error),
+    path('test-logger/', LoggerOnlyTestView.as_view(), name='test-logger'),
 ], "auth")

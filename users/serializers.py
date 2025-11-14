@@ -2,12 +2,21 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 
+from users.models import UserProfile
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta: 
+        model = UserProfile
+        fields = ['distance_traveled_km', 'profile_thum_path', 'routes_created', 'spot_created']
+        read_only_fields = ['distance_traveled_km', 'routes_created', 'spot_created']
+        
 class UserSerializer(serializers.ModelSerializer):
     """Serializer para lectura de usuarios"""
+    profile = UserProfileSerializer()
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                  'is_active', 'date_joined', 'last_login']
+                  'is_active', 'date_joined', 'last_login', 'profile']
         read_only_fields = ['id', 'date_joined', 'last_login']
 
 
@@ -43,6 +52,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    
     """Serializer para actualización de usuarios"""
     class Meta:
         model = User
@@ -50,3 +60,5 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'username': {'required': False}
         }
+    
+

@@ -6,7 +6,18 @@ from decouple import config
 import sentry_sdk
 from rich.logging import RichHandler
 from datetime import timedelta
+import warnings
+import logging.config
+from django.conf import settings
 
+warnings.filterwarnings(
+    "ignore",
+    message="app_settings.USERNAME_REQUIRED is deprecated",
+)
+warnings.filterwarnings(
+    "ignore",
+    message="app_settings.EMAIL_REQUIRED is deprecated",
+)
 
 #------------------------------ CONFIGURACION DE SENTRY ----------------------------------------
 sentry_sdk.init(
@@ -171,10 +182,25 @@ JWT_AUTH_REFRESH_COOKIE = 'refresh'
 CORS_ALLOWED_ORIGINS = [
 ]
 
+#---------------------------------------------- REST AUTH -----------------------------------------------------
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': None,
+    'JWT_AUTH_REFRESH_COOKIE': None,
+    'JWT_AUTH_HTTPONLY': True,
+    'JWT_AUTH_RETURN_EXPIRATION': True,
+    'JWT_AUTH_SECURE': False,  # Cambia a True si usas HTTPS
+    'JWT_AUTH_SAMESITE': 'Lax',
+
+    'REGISTER_SERIALIZER': 'dj_rest_auth.registration.serializers.RegisterSerializer',
+    'TOKEN_MODEL': None,  # No se usa Token model cuando USE_JWT=True
+}
 
 #---------------------------------------------- ALL AUTH -----------------------------------------------------
 ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username', 'password1*', 'password2*']
+
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
@@ -256,7 +282,12 @@ LOGGING = {
         'authentication': {  
             'handlers': ['console', 'file', 'error_file'],
             'level': 'INFO',
-            'propagate': False,
+            'propagate': True,
+        },
+        'users': {  
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'INFO',
+            'propagate': True,
         },
     },
 }
@@ -289,25 +320,12 @@ if os.name == 'nt':
     # Agrega OSGeo4W al PATH del sistema
     os.environ['PATH'] = os.path.join(OSGEO_PATH, 'bin') + ';' + os.environ['PATH']
     os.environ['PROJ_LIB'] = os.path.join(OSGEO_PATH, 'share', 'proj')
-
-
-#----------------------------- EXTRAS -----------------------------------------------------------
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG')
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
-ROOT_URLCONF = 'ManzaSpots_api.urls'
-WSGI_APPLICATION = 'ManzaSpots_api.wsgi.application'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-SITE_ID = 1
-GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT')
-
-
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
-
+    
+    
+#--------------------------------- REST_FRAMEWORK ------------------------------------------------
 REST_FRAMEWORK = {
+    
+    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.custom_exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -317,7 +335,26 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
+        'manza_spots.renderers.StandardJSONRenderer',
     ],
+
 }
 
+
+#----------------------------- EXTRAS -----------------------------------------------------------
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG')
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ROOT_URLCONF = 'manza_spots.urls'
+WSGI_APPLICATION = 'manza_spots.wsgi.application'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+SITE_ID = 1
+GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT')
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+#Obligamos a django a crear los loggins
+logging.config.dictConfig(settings.LOGGING)

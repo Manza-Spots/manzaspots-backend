@@ -297,7 +297,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Error inesperado. Por favor contacta soporte.'},
+            {'detail': 'Error inesperado. Revisa los logs'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
