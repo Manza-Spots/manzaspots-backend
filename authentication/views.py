@@ -119,27 +119,3 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
         return response
     
     
-class LoggerOnlyTestView(APIView):
-    """
-    Vista simple para probar el logger sin Sentry ni mixins.
-    """
-
-    def get(self, request, *args, **kwargs):
-        logger = logging.getLogger(__name__)  # obtiene el logger del módulo actual
-        # print(__name__)
-        # print('pepe pica pieda prm')
-        logger.debug("🔍 DEBUG: Entrando al método GET.")
-        logger.info("ℹ️ INFO: Probando logging básico.")
-        logger.warning("⚠️ WARNING: Esto es una advertencia de prueba.")
-        logger.error("❌ ERROR: Esto es un error simulado (sin excepción).")
-
-        try:
-            1 / 0  # lanza una excepción para probar traceback
-        except Exception as e:
-            logger.exception("💥 EXCEPTION: Se capturó una excepción de prueba.")
-
-        return Response(
-            {"detail": "Logger probado. Revisa la consola o archivo de logs."},
-            status=status.HTTP_200_OK
-        )
-

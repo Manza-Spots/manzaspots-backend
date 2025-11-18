@@ -1,7 +1,7 @@
 from django.urls import include, path
 import rest_framework_simplejwt.views as jwt_views
 
-from authentication.views import GoogleLogin, LoggerOnlyTestView, PasswordResetConfirmView, PasswordResetRequestView
+from authentication.views import GoogleLogin, PasswordResetConfirmView, PasswordResetRequestView
 
 authentications_patterns = ([
     # url tokens
@@ -18,7 +18,4 @@ authentications_patterns = ([
     # path('accounts/', include('allauth.urls')),  
     path('registration/', include('dj_rest_auth.registration.urls')),    
     path('google/', GoogleLogin.as_view(), name='google_login'),
-      
-    #pruebas de sentry
-    path('test-logger/', LoggerOnlyTestView.as_view(), name='test-logger'),
 ], "auth")

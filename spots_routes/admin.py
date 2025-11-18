@@ -29,8 +29,18 @@ def desactivar_spots(modeladmin, request, queryset):
     queryset.update(is_active=False)
 
 
+from django.contrib.gis import admin as gis_admin
+
 @admin.register(Spot)
-class SpotAdmin(admin.ModelAdmin):
+class SpotAdmin(gis_admin.GISModelAdmin):
+    gis_widget_kwargs = {
+        'attrs': {
+            'default_zoom': 12,
+            'default_lat': 19.0519,  # Latitud de Manzanillo
+            'default_lon': -104.3186,  # Longitud de Manzanillo
+        },
+    }
+    
     list_display = (
         "id",
         "name",
@@ -49,14 +59,8 @@ class SpotAdmin(admin.ModelAdmin):
     def location_display(self, obj):
         if not obj.location:
             return "-"
-        return f"{obj.location.y:.5f}, {obj.location.x:.5f}"
-    location_display.short_description = "Coords"
-
-    def get_queryset(self, request):
-        return (
-            super().get_queryset(request)
-            .select_related("user", "status", "reviewed_user")
-        )
+        return f"{obj.location.y:.6f}, {obj.location.x:.6f}"
+    location_display.short_description = "Coordenadas"
 
 
 @admin.register(SpotCaption)
