@@ -5,27 +5,33 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Instalar dependencias del sistema para GDAL
+# Instalar dependencias del sistema para GDAL y PostgreSQL
 RUN apt-get update && apt-get install -y \
     gdal-bin \
     libgdal-dev \
     binutils \
     libproj-dev \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Directorio de trabajo dentro del contenedor
+# Directorio de trabajo
 WORKDIR /app
 
-# Copiar requirements e instalar dependencias
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Instalar pipenv
+RUN pip install --no-cache-dir pipenv
 
-# Copiar todo el código del proyecto
+# Copiar Pipenv primero (para cache)
+COPY Pipfile Pipfile.lock /app/
+
+# Instalar dependencias dentro del sistema (no virtualenv)
+RUN pipenv install --system --deploy
+
+# Copiar el resto del proyecto
 COPY . /app/
 
-# Exponer el puerto 8000
+# Exponer puerto 8000
 EXPOSE 8000
 
-# Comando para ejecutar la aplicación
+# Comando para ejecutar con Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "manza_spots.wsgi:application"]
