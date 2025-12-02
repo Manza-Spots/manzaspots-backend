@@ -1,0 +1,41 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+gunicorn = "*"
+djangorestframework = "*"
+djangorestframework-simplejwt = "*"
+django-cors-headers = "*"
+django-rest-passwordreset = "*"
+psycopg2-binary = "*"
+colorama = "*"
+sentry-sdk = {extras = ["django"], version = "*"}
+python-decouple = "*"
+requests = "*"
+rich = "*"
+django-allauth = "*"
+google-auth = "*"
+dj-rest-auth = {extras = ["with_social"], version = "*"}
+psycopg = "*"
+psycopg-binary = "*"
+itsdangerous = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
+
+[scripts]
+r = "python manage.py runserver"
+mi = "python manage.py migrate"
+mk = "python manage.py makemigrations"
+su = "python manage.py createsuperuser"
+sh = "python manage.py shell"
+test = "python manage.py test"
+st= "python manage.py startapp"
+clearsessions = "python manage.py clearsessions"
+install-dev = "pipenv install --dev django-extensions"
+django = "python manage.py"
