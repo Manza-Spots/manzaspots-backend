@@ -16,7 +16,15 @@ class SpotStatusReview(models.Model):
 def get_default_pending():
     """Obtener estado pendiente para utuilizarlo como default en el modelo de spot"""
     return SpotStatusReview.objects.get(key='PENDING').id
-    
+
+def get_approved():
+    """Obtener estado aprovado"""
+    return SpotStatusReview.objects.get(key='APPROVED').id
+
+def get_rejected():
+    """Obtener estado rechazado"""
+    return SpotStatusReview.objects.get(key='REJECTED').id
+
 class Spot(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_created')
     name = models.CharField(max_length=50)
@@ -39,11 +47,11 @@ class SpotCaption(models.Model):
     spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='captions')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='captions_made')
     description = models.TextField(blank=True, null=True)
-    caption = models.CharField(max_length=255)
+    img_path = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     
-    def _str_(self):
+    def __str__(self):
         return f"photo spot: {self.spot} for user: {self.user}"
     
 class UserFavoriteSpot(models.Model):

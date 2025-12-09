@@ -20,10 +20,12 @@ from django.contrib import admin
 from django.urls import include, path
 from authentication.urls import authentications_patterns
 from users.urls import user_patterns
+from spots_routes.urls import spots_routes_patterns
 
 api_v1_patterns = [
     path('auth/', include(authentications_patterns)),
     path('users/', include(user_patterns)), 
+    path('', include(spots_routes_patterns))
 ]
 
 urlpatterns = [

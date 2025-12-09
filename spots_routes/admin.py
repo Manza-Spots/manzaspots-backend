@@ -65,8 +65,8 @@ class SpotAdmin(gis_admin.GISModelAdmin):
 
 @admin.register(SpotCaption)
 class SpotCaptionAdmin(admin.ModelAdmin):
-    list_display = ("id", "spot", "user", "caption", "is_active", "created_at")
-    search_fields = ("caption", "spot__name", "user__username")
+    list_display = ("id", "spot", "user", "img_path", "is_active", "created_at")
+    search_fields = ("img_path", "spot__name", "user__username")
     list_filter = ("is_active", "created_at")
 
 
