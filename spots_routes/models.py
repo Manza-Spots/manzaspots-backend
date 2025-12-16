@@ -120,7 +120,7 @@ class UserFavoriteSpot(models.Model):
 
 
 class Difficulty(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50) #Facil, Intermedio, Dificil
     key = models.CharField(max_length=10)
     hex_color = models.CharField(max_length=7)
     is_active = models.BooleanField(default=True)
