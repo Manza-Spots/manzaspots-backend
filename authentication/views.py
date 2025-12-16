@@ -1,5 +1,6 @@
 # views.py - Solo maneja HTTP
 import logging
+from urllib import request
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -19,13 +20,27 @@ from rest_framework.decorators import api_view, permission_classes
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 User = get_user_model()
+_MODULE_PATH = __name__
 
 class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [AllowAny]
     sentry_operation_name = "password_reset_request"
+    
+    #Open Api Redoc
+    @extend_schema(
+        summary="Solicitar nueva contraseña",
+        tags=["auth"],
+        description=(
+            "Solicita el restablecimiento de contraseña a partir del correo proporcionado. \n\n "
+            "Si el correo no existe, no se revela esta información al usuario.  \n\n"
+            "Si existe, se envía un token de restablecimiento al correo registrado.\n\n"
+            f"**Code:** `{_MODULE_PATH}.PasswordResetRequestView`"
+        )    
+    )
     
     def post(self, request):
         return self.handle_with_sentry(
@@ -34,7 +49,7 @@ class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView)
             tags={
                 'app': __name__,
                 'authenticated': request.user.is_authenticated,
-                'component': 'PasswordResetRequestView._request_password_reset',                
+                'component': f'{_MODULE_PATH}._request_password_reset',                
             },
             success_message={
                 'detail': 'Si el usuario existe, se enviará un correo con instrucciones.'
@@ -54,6 +69,16 @@ class PasswordResetConfirmView(SentryErrorHandlerMixin, generics.GenericAPIView)
     permission_classes = [AllowAny] 
     serializer_class = SetNewPasswordSerializer
     sentry_operation_name = "password_reset_confirm"
+    
+    @extend_schema(
+            summary="Confirmas Nueva Contraseña",
+            tags=["auth"],
+            description=(
+                "Actualiza la contraseña del usuario utilizando el token de restablecimiento y el identificador \n\n"
+                "de usuario previamente enviados en la solicitud de recuperación de contraseña. \n\n  "
+                f"**Code:** `{_MODULE_PATH}.PasswordResetConfirmView`"
+            )    
+        )
     
     def post(self, request):
         return self.handle_with_sentry(
@@ -88,6 +113,14 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
     sentry_operation_name = "google_authentication"
 
+    @extend_schema(
+        summary="Autenticacion con Google",
+        tags=["auth"],
+        description=
+            "Autentica o registra usuarios mediante Google como proveedor externo, validando un token emitido por Google y retornando  \n\n"
+            "los tokens de acceso de la aplicación\n\n"
+            f"**Code:** `{_MODULE_PATH}.GoogleLogin`"
+    )
 
     def post(self, request, *args, **kwargs):
         return self.handle_with_sentry(
