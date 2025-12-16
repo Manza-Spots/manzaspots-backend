@@ -1,23 +1,102 @@
+from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status, generics
-from rest_framework.permissions import IsAuthenticated, IsAdminUser,IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
+from core.mixins import ViewSetSentryMixin
 from spots_routes.models import Spot, SpotCaption, SpotStatusReview, UserFavoriteSpot
-from spots_routes.serializer import SpotCaptionCreateSerializer, SpotCaptionSerializer, SpotSerializer, UserFavoriteSpotSerializer
+from spots_routes.serializer import (
+    SpotCaptionCreateSerializer, 
+    SpotCaptionSerializer, 
+    SpotSerializer, 
+    UserFavoriteSpotSerializer
+)
 from django.utils import timezone
 from spots_routes import models
+_MODULE_PATH = __name__
 
-class SpotViewSet(viewsets.ModelViewSet):
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar spots",
+        tags=["spots"],
+        description=(
+            "Obtiene la lista de spots del sistema.\n\n "
+            "Los usuarios no autenticados y autenticados solo verán spots activos y aprobados. \n\n"
+            "Los administradores pueden filtrar por estado.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_list`"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name='name',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description='Filtrar spots por nombre (búsqueda parcial)',
+                required=False
+            ),
+            OpenApiParameter(
+                name='status',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description='Filtrar por estado (solo para administradores): PENDING, APPROVED, REJECTED',
+                required=False
+            )
+        ]
+    ),
+    retrieve=extend_schema(
+        summary="Obtener detalle de spot",
+        tags=["spots"],
+        description="Obtiene la información detallada de un spot específico por su ID. \n\n"
+        f"**Code:** `{_MODULE_PATH}.SpotViewSet_retrieve`"
+    ),
+    create=extend_schema(
+        summary="Crear nuevo spot",
+        tags=["spots"],
+        description=(
+            "Crea un nuevo spot. El spot se crea en estado PENDING y será"
+            "asignado automáticamente al usuario autenticado. \n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_create`"            
+        )
+    ),
+    update=extend_schema(
+        summary="Actualizar spot completo",
+        tags=["spots"],
+        description=(
+            "Actualiza todos los campos de un spot. \n\n"
+            "Solo el propietario del spot o un administrador pueden actualizarlo.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_update`"            
+        )
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar spot parcialmente",
+        tags=["spots"],
+        description=(
+            "Actualiza uno o más campos de un spot. \n\n"
+            "Solo el propietario del spot o un administrador pueden actualizarlo. \n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_create`"            
+        )
+    ),
+    destroy=extend_schema(
+        summary="Eliminar spot",
+        tags=["spots"],
+        description=(
+            "Elimina un spot del sistema (soft delete).\n\n "
+            "Solo el propietario o un administrador pueden eliminarlo.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_destroy`"                        
+        )
+    )
+)
+class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     serializer_class = SpotSerializer
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
-        # Excepción: acción 'list' pública
         if self.action == 'list':
-            return []  # sin permisos → acceso libre
+            return []  
 
-        # Todo lo demás sigue requiriendo autenticación
+        # Todo lo demas sigue requiriendo autenticacion
         return [permission() for permission in self.permission_classes]
     
     def get_queryset(self):
@@ -25,13 +104,11 @@ class SpotViewSet(viewsets.ModelViewSet):
         queryset = Spot.objects.filter(deleted_at__isnull=True)
                 
         if self.action == 'list':
-            if user.is_authenticated:
-                if user.is_staff:
-                    status_param = self.request.query_params.get('status')
-                    if status_param:
-                        queryset = queryset.filter(status__key=status_param)
+            if user.is_staff:
+                status_param = self.request.query_params.get('status')
+                if status_param:
+                    queryset = queryset.filter(status__key=status_param)
             else:
-                # Usuarios normales: solo spots activos y aceptados
                 queryset = queryset.filter(
                     is_active=True,
                     status__key='APPROVED'
@@ -46,7 +123,6 @@ class SpotViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Asignar usuario y estado inicial al crear"""
-        #user metodo establecido en models
         serializer.save(
             user=self.request.user,
             status_id=models.get_default_pending()
@@ -69,11 +145,25 @@ class SpotViewSet(viewsets.ModelViewSet):
         """Mismo control para PATCH"""
         return self.update(request, *args, **kwargs)
     
+    @extend_schema(
+        summary="Autorizar spot",
+        tags=["spots"],
+        description=(
+            "Autoriza un spot cambiando su estado a APPROVED. \n\n"
+            "Solo accesible para administradores. \n\n"
+            "El spot se activa automáticamente al ser aprobado.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_authorize`"            
+        ),
+        responses={
+            200: SpotSerializer,
+            403: OpenApiResponse(description="No tienes permisos de administrador"),
+            404: OpenApiResponse(description="Spot no encontrado")
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def authorize(self, request, pk=None):
         """Autorizar un spot"""
         spot = self.get_object()
-        # id_status = models.get_approved()
         spot.status_id = models.get_approved()  
         spot.is_active = True
         spot.reviewed_user = request.user
@@ -83,6 +173,34 @@ class SpotViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(spot)
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Rechazar spot",
+        tags=["spots"],
+        description=(
+            "Rechaza un spot cambiando su estado a REJECTED.\n\n "
+            "Solo accesible para administradores. \n\n"
+            "Se requiere proporcionar una razón para el rechazo.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_deny`"                        
+        ),
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'reason': {
+                        'type': 'string',
+                        'description': 'Razón del rechazo'
+                    }
+                },
+                'required': ['reason']
+            }
+        },
+        responses={
+            200: SpotSerializer,
+            400: OpenApiResponse(description="Se requiere una razón para rechazar"),
+            403: OpenApiResponse(description="No tienes permisos de administrador"),
+            404: OpenApiResponse(description="Spot no encontrado")
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def deny(self, request, pk=None):
         """Denegar un spot"""
@@ -105,16 +223,48 @@ class SpotViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(spot)
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Mis spots",
+        tags=["spots"],
+        description=(
+            "Obtiene todos los spots creados por el usuario autenticado, \n\n "
+            "en cualquier estado (pendiente, aprobado o rechazado). \n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_my_spots`"                                    
+        ),
+        responses={
+            200: SpotSerializer(many=True)
+        }
+    )
     @action(detail=False, methods=['get'])
     def my_spots(self, request):
         """Spots del usuario actual"""
         queryset = Spot.objects.filter(
             user=request.user,
-            deleted_at__isnull=True
+            deleted_at__isnull=True,
+            is_active = True,
         )
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Agregar a favoritos",
+        tags=["spots", "favorite spots"],
+        description=(
+            "Agrega un spot a la lista de favoritos del usuario. \n\n"
+            "Si el spot ya está en favoritos pero inactivo, lo reactiva.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_add_to_favorites`"                                                
+        ),
+        responses={
+            201: OpenApiResponse(
+                description="Spot agregado a favoritos",
+                response={'type': 'object', 'properties': {'status': {'type': 'string'}}}
+            ),
+            200: OpenApiResponse(
+                description="Spot ya estaba en favoritos o fue reactivado",
+                response={'type': 'object', 'properties': {'status': {'type': 'string'}}}
+            )
+        }
+    )
     @action(detail=True, methods=['post'])
     def add_to_favorites(self, request, pk=None):
         """Agregar spot a favoritos"""
@@ -139,6 +289,22 @@ class SpotViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'added'}, status=status.HTTP_201_CREATED)
     
+    @extend_schema(
+        summary="Remover de favoritos",
+        tags=["spots", "favorite spots"],
+        description=(
+            "Remueve un spot de la lista de favoritos del usuario (soft delete). \n\n"
+            "El spot no se elimina, solo se marca como inactivo en favoritos.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotViewSet_remove_from_favorites`"                                                
+        ),
+        responses={
+            200: OpenApiResponse(
+                description="Spot removido de favoritos",
+                response={'type': 'object', 'properties': {'status': {'type': 'string'}}}
+            ),
+            404: OpenApiResponse(description="Este spot no está en tus favoritos")
+        }
+    )
     @action(detail=True, methods=['post'])
     def remove_from_favorites(self, request, pk=None):
         """Remover de favoritos (soft delete)"""
@@ -159,6 +325,18 @@ class SpotViewSet(viewsets.ModelViewSet):
             )
 
 
+@extend_schema(
+    summary="Listar mis favoritos",
+    tags=["favorite spots"],
+    description=(
+        "Obtiene la lista de spots favoritos del usuario autenticado. \n\n"
+        "Solo muestra favoritos activos y spots no eliminados.\n\n"
+        f"**Code:** `{_MODULE_PATH}.UserFavoriteSpotsView`"                                                
+    ),
+    responses={
+        200: UserFavoriteSpotSerializer(many=True)
+    }
+)
 class UserFavoriteSpotsView(generics.ListAPIView):
     """Vista para listar favoritos del usuario actual"""
     serializer_class = UserFavoriteSpotSerializer
@@ -170,16 +348,46 @@ class UserFavoriteSpotsView(generics.ListAPIView):
             is_active=True,
             spot__deleted_at__isnull=True
         ).select_related('spot')
-        
-        
-class SpotCaptionViewSet(viewsets.ModelViewSet):
+
+
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar captions",
+        tags=["spot-captions"],
+        description=(
+            "Obtiene la lista de captions (fotos) del spot compartido en el primer parametro de ruta.\n\n "
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                            
+        ),
+        parameters=[
+            OpenApiParameter(
+                name='spot',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description='ID del spot para filtrar sus captions',
+                required=False
+            )
+        ]
+    ),
+    retrieve=extend_schema(
+        summary="Obtener caption",
+        tags=["spot-captions"],
+        description="Obtiene los detalles de un caption específico por su ID. \n\n"
+                    f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                            
+    ),
+    create=extend_schema(
+        summary="Crear caption",
+        tags=["spot-captions"],
+        description=(
+            "Crea un nuevo caption (comentario) para un spot. \n\n"
+            "El caption se asocia automáticamente al usuario autenticado. \n\n"
+            "El ID del spot debe ser proporcionado en la URL como parametro de ruta.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_create`"                                                            
+        )
+    )
+)
+class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
     ViewSet para manejar los captions de spots
-    
-    list: Ver todos los captions (opcional, o filtrados por spot)
-    create: Crear un nuevo caption
-    retrieve: Ver un caption específico
-    update/destroy: Solo el dueño o admin puede editar/eliminar
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
     
@@ -199,8 +407,18 @@ class SpotCaptionViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
-        # Asignar automáticamente el usuario autenticado
-        serializer.save(user=self.request.user)
+        print("KWARGS:", self.kwargs)
+        spot_id = self.kwargs.get('spot_pk')
+        
+        spot = get_object_or_404(Spot, pk=spot_id, is_active=True)
+        
+        if not spot_id:
+            raise ValidationError("URL inválida: falta el spot_id")
+
+        serializer.save(
+            user=self.request.user,
+            spot=spot
+        )
     
     def perform_update(self, serializer):
         # Solo el dueño o admin puede actualizar
