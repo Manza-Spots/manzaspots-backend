@@ -7,7 +7,7 @@ class SpotCaptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SpotCaption
-        fields = ['description', 'img_path', 'created_at', 'user', 'user_name', 'spot']
+        fields = ['id','description', 'img_path', 'created_at', 'user', 'user_name', 'spot']
         read_only_fields = ['user', 'created_at']  
 
 
@@ -21,7 +21,7 @@ class SpotCaptionSerializer(serializers.ModelSerializer):
 class SpotCaptionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SpotCaption
-        fields = ['spot', 'img_path', 'description']
+        fields = ['img_path', 'description']
     
     def validate_spot(self, value):
         if not value.is_active:
@@ -29,10 +29,11 @@ class SpotCaptionCreateSerializer(serializers.ModelSerializer):
         return value
     
 class SpotSerializer(serializers.ModelSerializer):
-    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='captions')
-    is_favorite = serializers.SerializerMethodField() #ojito eh, el serializerMehotField busco un metodo dentro de esta clase para ejecutarlo y guardar la info como un serializer ,as para ello debe tener el mismo nombre que cabron
+    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='photos')  # Cambié 'captions' a 'photos'
+    is_favorite = serializers.SerializerMethodField()
     user_name = serializers.CharField(source='user.username', read_only=True)
-    status_name = serializers.CharField(source = 'status.name')
+    status_name = serializers.CharField(source='status.name', read_only=True)  # Agregué read_only
+    
     class Meta:
         model = Spot
         fields = [
@@ -40,14 +41,13 @@ class SpotSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'description',
-            'spot_thumbnail_path',
+            'spot_thumbnail_path',  
             'location',
-            'user',
             'user_name',
             'created_at',
             
             # Campos de estado (solo para admins - se eliminarán en __init__)
-            'status_name',
+            'status_name', 
             'reject_reason',
             'reviewed_user',
             'reviewed_at',
@@ -58,6 +58,8 @@ class SpotSerializer(serializers.ModelSerializer):
             'spot_caption',
             'is_favorite',
         ]
+        
+        read_only_fields = ['user', 'created_at']  # Movido aquí, quitado 'status_name'
     
     def get_is_favorite(self, obj):
         request = self.context.get('request')
@@ -78,15 +80,17 @@ class SpotSerializer(serializers.ModelSerializer):
             
             # Campos que solo admins pueden ver
             admin_fields = {
-                'status', 'reject_reason', 'reviewed_user', 
-                'reviewed_at', 'deleted_at'
+                'status_name',  # ✅ Agregado aquí también
+                'reject_reason', 
+                'reviewed_user', 
+                'reviewed_at', 
+                'deleted_at'
             }
             
             if not user.is_staff:
                 # Remover campos de admin
                 for field in admin_fields:
                     self.fields.pop(field, None)
-
 
 class UserFavoriteSpotSerializer(serializers.ModelSerializer):
     spot = SpotSerializer(read_only=True)

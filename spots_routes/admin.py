@@ -36,13 +36,14 @@ class SpotAdmin(gis_admin.GISModelAdmin):
     gis_widget_kwargs = {
         'attrs': {
             'default_zoom': 12,
-            'default_lat': 19.0519,  # Latitud de Manzanillo
-            'default_lon': -104.3186,  # Longitud de Manzanillo
+            'default_lat': 19.0519,
+            'default_lon': -104.3186,
         },
     }
     
     list_display = (
         "id",
+        "thumbnail_preview",
         "name",
         "user",
         "status",
@@ -52,14 +53,30 @@ class SpotAdmin(gis_admin.GISModelAdmin):
     )
     search_fields = ("name", "description", "user__username")
     list_filter = ("status", "is_active", "created_at")
-    readonly_fields = ("created_at", "reviewed_at")
+    readonly_fields = ("created_at", "reviewed_at", "thumbnail_preview")
     inlines = [SpotCaptionInline]
     actions = [activar_spots, desactivar_spots]
+
+    def thumbnail_preview(self, obj):
+        """Muestra la miniatura del Spot en el admin."""
+        if obj.spot_thumbnail_path:
+            try:
+                return format_html(
+                    '<img src="{}" width="70" height="70" style="border-radius:5px; object-fit:cover;" />',
+                    obj.spot_thumbnail_path.url
+                )
+            except ValueError:
+                # En caso de que el archivo no exista físicamente
+                return format_html('<span style="color:red;">Imagen no encontrada</span>')
+        return format_html('<span style="color:gray;">Sin imagen</span>')
+    
+    thumbnail_preview.short_description = "Thumbnail"
 
     def location_display(self, obj):
         if not obj.location:
             return "-"
         return f"{obj.location.y:.6f}, {obj.location.x:.6f}"
+    
     location_display.short_description = "Coordenadas"
 
 
@@ -125,9 +142,30 @@ class RouteAdmin(admin.ModelAdmin):
 
 @admin.register(RoutePhoto)
 class RoutePhotoAdmin(admin.ModelAdmin):
-    list_display = ("id", "route", "user", "img_path", "is_active", "created_at")
+    list_display = ("id", "route", "user", "image_preview", "is_active", "created_at")
     search_fields = ("route__id", "user__username")
     list_filter = ("is_active",)
+    readonly_fields = ("image_preview_large",)
+    
+    def image_preview(self, obj):
+        """Thumbnail pequeño para la lista"""
+        if obj.img_path:
+            return format_html(
+                '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" />',
+                obj.img_path.url
+            )
+        return "Sin imagen"
+    image_preview.short_description = "Vista previa"
+    
+    def image_preview_large(self, obj):
+        """Imagen grande para el detalle"""
+        if obj.img_path:
+            return format_html(
+                '<img src="{}" style="max-width: 400px; max-height: 400px; border-radius: 8px;" />',
+                obj.img_path.url
+            )
+        return "Sin imagen"
+    image_preview_large.short_description = "Imagen"
 
 
 @admin.register(UserFavoriteRoute)
