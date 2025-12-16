@@ -23,6 +23,8 @@ psycopg = "*"
 psycopg-binary = "*"
 itsdangerous = "*"
 pillow = "*"
+drf-nested-routers = "*"
+drf-spectacular = "*"
 
 [dev-packages]
 
