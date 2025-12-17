@@ -146,7 +146,7 @@ class Route(models.Model):
     path = gis_models.LineStringField(geography=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField()
+    deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     
     def __str__(self):
@@ -164,7 +164,7 @@ class RoutePhoto(models.Model):
         ],
         help_text="Formatos: JPG, PNG, WEBP"
     )
-    coords = gis_models.PolygonField(srid=4326, blank=True, null=True)
+    location = gis_models.PointField(srid=4326, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -192,5 +192,11 @@ class UserFavoriteRoute(models.Model):
     deleted_at = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     
+    class Meta:
+        unique_together = ('user', 'route')  
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
+        
     def __str__(self):
         return f"favorite route: {self.pk} - route: {self.route}"
