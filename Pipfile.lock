@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "daac0a0ef8fbd9017141a8a40149e104a5e7ec883bd4d60049c9f40beb77510b"
+            "sha256": "966fc3ee16b1eade11e10703d427186f6dcf97a1d2a63065db4143480555a8eb"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -366,6 +366,15 @@
             "markers": "python_version >= '3.9'",
             "version": "==4.9.0"
         },
+        "django-filter": {
+            "hashes": [
+                "sha256:760e984a931f4468d096f5541787efb8998c61217b73006163bf2f9523fe8f23",
+                "sha256:9c0f8609057309bba611062fe1b720b4a873652541192d232dd28970383633e3"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==25.2"
+        },
         "django-rest-passwordreset": {
             "hashes": [
                 "sha256:6da38dd00e0cdb1ed5c403e66beeb90f10f8a1a73ebc13fdd27f2b5d67d14181",
@@ -382,6 +391,14 @@
             "index": "pypi",
             "markers": "python_version >= '3.9'",
             "version": "==3.16.1"
+        },
+        "djangorestframework-gis": {
+            "hashes": [
+                "sha256:3924651b2f6dcb5a64b30df9692577af548a04725b0c2c36cbc385f7c50fc80a",
+                "sha256:702ba9ad44173b7cc70e48c6c84da48c28f6f82612cc901a77fdb54c5c57c971"
+            ],
+            "index": "pypi",
+            "version": "==1.2.0"
         },
         "djangorestframework-simplejwt": {
             "hashes": [
@@ -1065,11 +1082,11 @@
         },
         "tzdata": {
             "hashes": [
-                "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8",
-                "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9"
+                "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1",
+                "sha256:de39c2ca5dc7b0344f2eba86f49d614019d29f060fc4ebc8a417896a620b56a7"
             ],
             "markers": "python_version >= '2'",
-            "version": "==2025.2"
+            "version": "==2025.3"
         },
         "uritemplate": {
             "hashes": [

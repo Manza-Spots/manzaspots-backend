@@ -25,6 +25,8 @@ itsdangerous = "*"
 pillow = "*"
 drf-nested-routers = "*"
 drf-spectacular = "*"
+django-filter = "*"
+djangorestframework-gis = "*"
 
 [dev-packages]
 
