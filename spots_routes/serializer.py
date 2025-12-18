@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from spots_routes.models import Spot, SpotCaption, UserFavoriteSpot
+from spots_routes.models import Difficulty, Route, RoutePhoto, Spot, SpotCaption, TravelMode, UserFavoriteRoute, UserFavoriteSpot
+from rest_framework_gis.fields import GeometryField
 
 
 class SpotCaptionSerializer(serializers.ModelSerializer):
@@ -29,11 +30,11 @@ class SpotCaptionCreateSerializer(serializers.ModelSerializer):
         return value
     
 class SpotSerializer(serializers.ModelSerializer):
-    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='photos')  # Cambié 'captions' a 'photos'
+    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='photos')  
     is_favorite = serializers.SerializerMethodField()
     user_name = serializers.CharField(source='user.username', read_only=True)
-    status_name = serializers.CharField(source='status.name', read_only=True)  # Agregué read_only
-    
+    status_name = serializers.CharField(source='status.name', read_only=True)
+    location = GeometryField() 
     class Meta:
         model = Spot
         fields = [
@@ -46,7 +47,7 @@ class SpotSerializer(serializers.ModelSerializer):
             'user_name',
             'created_at',
             
-            # Campos de estado (solo para admins - se eliminarán en __init__)
+            # Campos de estado (solo para admins)
             'status_name', 
             'reject_reason',
             'reviewed_user',
@@ -59,7 +60,7 @@ class SpotSerializer(serializers.ModelSerializer):
             'is_favorite',
         ]
         
-        read_only_fields = ['user', 'created_at']  # Movido aquí, quitado 'status_name'
+        read_only_fields = ['user', 'created_at']
     
     def get_is_favorite(self, obj):
         request = self.context.get('request')
@@ -98,3 +99,70 @@ class UserFavoriteSpotSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserFavoriteSpot
         fields = ['id', 'spot', 'created_at', 'is_active']
+
+
+#=================================== SPOTS =========================================================
+        
+class RoutePhotoSerializer(serializers.ModelSerializer):
+    location = GeometryField() 
+    user_name = serializers.CharField(
+        source='user.username',
+        read_only=True
+    )
+    
+    class Meta:
+        model = RoutePhoto 
+        fields = ['id', 'user', 'user_name', 'route', 'img_path', 'location', 'created_at'] 
+        read_only_fields = ['id', 'user', 'created_at']
+
+
+class RoutePhotoCreateSerializer(serializers.ModelSerializer):
+    location = GeometryField() 
+    class Meta: 
+        model = RoutePhoto
+        fields = ['img_path', 'location']
+    
+    
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    route_photos = RoutePhotoSerializer(many=True, read_only=True, source='photo')  
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    difficulty_name = serializers.CharField(source='difficulty.name', read_only=True)
+    travel_mode_name = serializers.CharField(source='travel_mode.name', read_only=True)
+    is_favorite = serializers.SerializerMethodField()
+    travel_mode = serializers.SlugRelatedField(
+        slug_field = "key",
+        queryset = TravelMode.objects.all()
+    )
+    difficulty = serializers.SlugRelatedField(
+        slug_field = "key",
+        queryset = Difficulty.objects.all()
+    )
+    
+    class Meta:
+        path = GeometryField() 
+        model = Route
+        fields = [
+            'id', 'user', 'user_name', 'difficulty', 'difficulty_name',
+            'travel_mode', 'travel_mode_name', 'description', 
+            'path', 'is_active', 'route_photos', 'is_favorite', 'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'distance','spot']
+    
+    def get_is_favorite(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return UserFavoriteRoute.objects.filter(
+                user=request.user,
+                route=obj,  
+                is_active=True
+            ).exists()
+        return False
+
+class UserFavoriteRouteSerializer(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+    
+    class Meta:
+        model = UserFavoriteRoute
+        fields = ['id', 'route', 'created_at', 'is_active']

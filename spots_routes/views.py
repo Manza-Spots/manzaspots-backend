@@ -1,19 +1,25 @@
 from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, status, generics
+from rest_framework import viewsets, status, generics,permissions
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
 from core.mixins import ViewSetSentryMixin
-from spots_routes.models import Spot, SpotCaption, SpotStatusReview, UserFavoriteSpot
+from spots_routes.filters import RouteFilter, RoutePhotoFilter
+from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
 from spots_routes.serializer import (
     SpotCaptionCreateSerializer, 
     SpotCaptionSerializer, 
     SpotSerializer, 
-    UserFavoriteSpotSerializer
+    UserFavoriteSpotSerializer,
+    RouteSerializer, 
+    RoutePhotoSerializer, 
+    RoutePhotoCreateSerializer,
+    UserFavoriteRouteSerializer
 )
+from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from spots_routes import models
 _MODULE_PATH = __name__
@@ -431,3 +437,200 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         if self.request.user != instance.user and not self.request.user.is_staff:
             raise PermissionDenied("No tienes permiso para eliminar este caption")
         instance.delete()
+        
+
+#====================================== ROUTES =================================================
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Permiso personalizado para permitir solo a los dueños editar un objeto.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Los permisos de lectura se permiten para cualquier request
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # Los permisos de escritura solo se permiten al dueño
+        return obj.user == request.user
+
+
+class RouteViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar las rutas.
+    Permite CRUD completo y acciones personalizadas.
+    """
+    queryset = Route.objects.filter(is_active=True).select_related(
+        'user', 'difficulty', 'travel_mode', 'spot'
+    ).prefetch_related('photo')
+    serializer_class = RouteSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+    
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RouteFilter
+    
+    def get_queryset(self):
+        queryset = Route.objects.filter(is_active=True).select_related(
+            'user', 'difficulty', 'travel_mode', 'spot'
+        )
+        
+        # Solo cargar fotos si:
+        # 1. Es accion retrieve O
+        # 2. Se solicita explicitamente con ?expand=photos
+        expand = self.request.query_params.get('expand', '')
+        if self.action == 'retrieve' or 'photos' in expand.split(','):
+            queryset = queryset.prefetch_related('photo')
+        
+        return queryset
+    
+    def get_serializer_class(self):
+        """
+        Retorna un serializer dinámico según la acción y query params.
+        """
+        if self.action == 'list':
+            expand = self.request.query_params.get('expand', '')
+            if 'photos' not in expand.split(','):
+                return self._get_list_serializer_without_photos()
+        
+        return RouteSerializer
+    
+    def _get_list_serializer_without_photos(self):
+        """
+        Crea un serializer ligero sin fotos para listados.
+        """
+        class RouteLightSerializer(RouteSerializer):
+            class Meta(RouteSerializer.Meta):
+                fields = [f for f in RouteSerializer.Meta.fields if f != 'route_photos']
+        
+        return RouteLightSerializer
+    def perform_create(self, serializer):
+        """
+        Asigna automáticamente el usuario autenticado al crear una ruta y el spot del path.
+        """
+        spot_id = self.kwargs.get('spot_pk')
+        spot = get_object_or_404(Spot, pk=spot_id, is_active=True)
+        serializer.save(
+            user=self.request.user,
+            spot=spot
+        )    
+    def perform_destroy(self, instance):
+        """
+        Soft delete - marca como inactiva en lugar de eliminar.
+        """
+        instance.is_active = False
+        instance.save()
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def add_favorite(self, request, pk=None, *args, **kwargs):
+        """
+        Añade la ruta a favoritos del usuario.
+        """
+        route = self.get_object()
+        
+        # Verificar si ya existe como favorito
+        favorite, created = UserFavoriteRoute.objects.get_or_create(
+            user=request.user,
+            route=route,
+            defaults={'is_active': True}
+        )
+        
+        if not created:
+            # Si ya existía, asegurarse de que esté activo
+            if not favorite.is_active:
+                favorite.is_active = True
+                favorite.save()
+                return Response(
+                    {'message': 'Ruta añadida a favoritos'},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {'message': 'Esta ruta ya está en tus favoritos'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(
+            {'message': 'Ruta añadida a favoritos'},
+            status=status.HTTP_201_CREATED
+        )
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def remove_favorite(self, request, pk=None, *args, **kwargs):
+        """
+        Elimina la ruta de favoritos del usuario.
+        """
+        route = self.get_object()
+        
+        try:
+            favorite = UserFavoriteRoute.objects.get(
+                user=request.user,
+                route=route,
+                is_active=True
+            )
+            favorite.is_active = False
+            favorite.save()
+            
+            return Response(
+                {'message': 'Ruta eliminada de favoritos'},
+                status=status.HTTP_200_OK
+            )
+        except UserFavoriteRoute.DoesNotExist:
+            return Response(
+                {'message': 'Esta ruta no está en tus favoritos'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+
+class RoutePhotoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar las fotos de rutas.
+    """
+    queryset = RoutePhoto.objects.select_related('user', 'route')
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RoutePhotoFilter
+    
+    def get_serializer_class(self):
+        """
+        Usa diferentes serializers según la acción.
+        """
+        if self.action == 'create':
+            return RoutePhotoCreateSerializer
+        return RoutePhotoSerializer
+    
+    def perform_create(self, serializer):
+        """
+        Asigna automáticamente el usuario y la ruta al crear una foto.
+        """
+        # Obtener el route_id desde los datos de la petición
+        route_id = self.request.data.get('route')
+        
+        if not route_id:
+            return Response(
+                {'error': 'Se requiere el ID de la ruta'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        route = get_object_or_404(Route, id=route_id, is_active=True)
+        serializer.save(user=self.request.user, route=route)
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_photos(self, request):
+        """
+        Obtiene solo las fotos del usuario autenticado.
+        """
+        photos = self.get_queryset().filter(user=request.user)
+        serializer = self.get_serializer(photos, many=True)
+        return Response(serializer.data)
+
+
+class UserFavoriteRouteView(generics.ListAPIView):
+    """Vista para listar favoritos del usuario actual"""
+    serializer_class = UserFavoriteRouteSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return UserFavoriteRoute.objects.filter(
+            user=self.request.user,
+            is_active=True,
+            route__deleted_at__isnull=True
+        ).select_related('route')
