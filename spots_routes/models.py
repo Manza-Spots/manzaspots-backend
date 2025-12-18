@@ -5,6 +5,7 @@ from django.core.validators import FileExtensionValidator
 from django.utils.html import format_html
 from authentication.views import User
 from manza_spots.utils import route_photo_path, spot_photo_path, spot_thumbnail_path
+from django.contrib.gis.geos import GEOSGeometry
 
 #----------------------------------- SPOTS --------------------------------------------
 
@@ -118,7 +119,6 @@ class UserFavoriteSpot(models.Model):
 
 #----------------------- ROUTES -------------------------------------
 
-
 class Difficulty(models.Model):
     name = models.CharField(max_length=50) #Facil, Intermedio, Dificil
     key = models.CharField(max_length=10)
@@ -142,7 +142,7 @@ class Route(models.Model):
     difficulty = models.ForeignKey(Difficulty, on_delete=models.CASCADE, related_name='routes_with_dificulty')
     travel_mode = models.ForeignKey(TravelMode, on_delete=models.CASCADE, related_name = 'routes_with_mode')
     description = models.TextField(blank=True, null=True)
-    distance = models.DecimalField(max_digits=10, decimal_places=2)
+    distance = models.DecimalField(max_digits=10, decimal_places=2, editable=False) 
     path = gis_models.LineStringField(geography=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -151,6 +151,21 @@ class Route(models.Model):
     
     def __str__(self):
         return f"route id: {self.pk} - spot: {self.spot}"
+    
+
+    def save(self, *args, **kwargs):
+        """
+        Calculamos la distancia en KM usando un SRID en metros
+        """
+        if self.path:
+            path_m = self.path.transform(3857, clone=True)
+            distance_meters = path_m.length
+            self.distance = round(distance_meters / 1000, 2)
+        else:
+            self.distance = 0
+
+        super().save(*args, **kwargs)
+
     
 class RoutePhoto(models.Model):
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='photo')
@@ -185,7 +200,6 @@ class RoutePhoto(models.Model):
 
 class UserFavoriteRoute(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_routes')
-    spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='favorites_from_users')
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='favorites')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
