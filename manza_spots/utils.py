@@ -62,7 +62,6 @@ def spot_photo_path(instance, filename):
     """
     return upload_image_path('spots', instance, filename, use_spot=True)
 
-
 def route_photo_path(instance, filename):
     """
     Ruta para fotos de rutas
@@ -84,9 +83,25 @@ def spot_thumbnail_path(instance, filename):
     
     # Si es nuevo (aún no tiene ID), usar timestamp temporal
     if instance.pk is None:
-        from datetime import datetime
-        temp_name = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        return f'spot_thumbnails/{temp_name}.{ext}'
+        unique_id = str(uuid4())[:8]
+        return f'spot_thumbnails/{unique_id}.{ext}'
     
     # Si ya existe, usar el ID del spot
     return f'spot_thumbnails/spot_{instance.pk}.{ext}'
+
+def user_thumbnail_path(instance, filename):
+    """
+    Ruta para la foto de perfil del usuario
+    Resultado: user_thumbnails/user_id
+    """
+    ext = filename.split('.')[-1].lower()
+    
+    allowed_extensions = ['jpg', 'jpeg', 'png', 'webp']
+    if ext not in allowed_extensions:
+        ext = 'jpg'
+    
+    if instance.pk is None:
+        unique_id = str(uuid4())[:8]
+        return f'user_thumbnails/{unique_id}.{ext}'
+    
+    return f'user_thumbnails/user_{instance.pk}.{ext}'
