@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from spots_routes.models import Difficulty, Route, RoutePhoto, Spot, SpotCaption, TravelMode, UserFavoriteRoute, UserFavoriteSpot
 from rest_framework_gis.fields import GeometryField
-
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
 class SpotCaptionSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
@@ -12,7 +13,7 @@ class SpotCaptionSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'created_at']  
 
 
-    def get_user_name(self, obj):
+    def get_user_name(self, obj) -> str:
         return obj.user.username
     
     def create(self, validated_data):
@@ -62,7 +63,7 @@ class SpotSerializer(serializers.ModelSerializer):
         
         read_only_fields = ['user', 'created_at']
     
-    def get_is_favorite(self, obj):
+    def get_is_favorite(self, obj) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return UserFavoriteSpot.objects.filter(
@@ -115,7 +116,6 @@ class RoutePhotoSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'user_name', 'route', 'img_path', 'location', 'created_at'] 
         read_only_fields = ['id', 'user', 'created_at']
 
-
 class RoutePhotoCreateSerializer(serializers.ModelSerializer):
     location = GeometryField() 
     class Meta: 
@@ -150,7 +150,7 @@ class RouteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'user', 'created_at', 'distance','spot']
     
-    def get_is_favorite(self, obj):
+    def get_is_favorite(self, obj) -> bool:
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return UserFavoriteRoute.objects.filter(

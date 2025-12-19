@@ -5,7 +5,13 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthentic
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    OpenApiParameter,
+    OpenApiExample,
+    OpenApiResponse,
+)
 from core.mixins import ViewSetSentryMixin
 from spots_routes.filters import RouteFilter, RoutePhotoFilter
 from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
@@ -19,9 +25,11 @@ from spots_routes.serializer import (
     RoutePhotoCreateSerializer,
     UserFavoriteRouteSerializer
 )
+from drf_spectacular.types import OpenApiTypes
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from spots_routes import models
+from spots_routes.utils import ROUTE_FILTER_PARAMS, ROUTE_PHOTO_FILTER_PARAMS, NESTED_PATH_PARAMS
 _MODULE_PATH = __name__
 
 @extend_schema_view(
@@ -102,7 +110,6 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         if self.action == 'list':
             return []  
 
-        # Todo lo demas sigue requiriendo autenticacion
         return [permission() for permission in self.permission_classes]
     
     def get_queryset(self):
@@ -254,7 +261,7 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     
     @extend_schema(
         summary="Agregar a favoritos",
-        tags=["spots", "favorite spots"],
+        tags=["spots", "spots-favorite"],
         description=(
             "Agrega un spot a la lista de favoritos del usuario. \n\n"
             "Si el spot ya está en favoritos pero inactivo, lo reactiva.\n\n"
@@ -297,7 +304,7 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     
     @extend_schema(
         summary="Remover de favoritos",
-        tags=["spots", "favorite spots"],
+        tags=["spots", "spots-favorite"],
         description=(
             "Remueve un spot de la lista de favoritos del usuario (soft delete). \n\n"
             "El spot no se elimina, solo se marca como inactivo en favoritos.\n\n"
@@ -333,7 +340,7 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
 
 @extend_schema(
     summary="Listar mis favoritos",
-    tags=["favorite spots"],
+    tags=["spots-favorite"],
     description=(
         "Obtiene la lista de spots favoritos del usuario autenticado. \n\n"
         "Solo muestra favoritos activos y spots no eliminados.\n\n"
@@ -413,7 +420,6 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
-        print("KWARGS:", self.kwargs)
         spot_id = self.kwargs.get('spot_pk')
         
         spot = get_object_or_404(Spot, pk=spot_id, is_active=True)
@@ -441,6 +447,7 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
 
 #====================================== ROUTES =================================================
 
+
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
     Permiso personalizado para permitir solo a los dueños editar un objeto.
@@ -453,8 +460,67 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         # Los permisos de escritura solo se permiten al dueño
         return obj.user == request.user
 
-
-class RouteViewSet(viewsets.ModelViewSet):
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar rutas",
+        tags=["routes"],
+        description=(
+            "Obtiene una lista de todas las rutas activas.\n\n"
+            "- Soporta filtrado mediante query params\n"
+            "- Por defecto no incluye fotos (optimización de rendimiento)\n"
+            "- Use `?expand=photos` para incluir fotos en la respuesta\n"
+            "- Requiere autenticación solo para crear/editar\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_list`"
+        ),
+        parameters=ROUTE_FILTER_PARAMS
+    ),
+    retrieve=extend_schema(
+        summary="Obtener detalle de ruta",
+        tags=["routes"],
+        description=(
+            "Obtiene los detalles completos de una ruta específica, incluyendo fotos.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_retrieve`"
+        )
+    ),
+    create=extend_schema(
+        summary="Crear nueva ruta",
+        tags=["routes"],
+        description=(
+            "Crea una nueva ruta asociada a un spot.\n\n"
+            "**Notas:**\n"
+            "- El usuario se asigna automáticamente del token de autenticación\n"
+            "- El spot se obtiene del parámetro de la URL (spot_pk)\n"
+            "- Requiere autenticación\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_create`"
+        )
+    ),
+    update=extend_schema(
+        summary="Actualizar ruta completa",
+        tags=["routes"],
+        description=(
+            "Actualiza todos los campos de una ruta. Solo el propietario puede editar.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_update`"
+        )
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar ruta parcialmente",
+        tags=["routes"],
+        description=(
+            "Actualiza campos específicos de una ruta. Solo el propietario puede editar.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_partial_update`"
+        )
+    ),
+    destroy=extend_schema(
+        summary="Eliminar ruta (soft delete)",
+        tags=["routes"],
+        description=(
+            "Marca la ruta como inactiva en lugar de eliminarla permanentemente.\n\n"
+            "Solo el propietario puede eliminar su ruta.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_destroy`"
+        )
+    )
+)
+class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
     ViewSet para gestionar las rutas.
     Permite CRUD completo y acciones personalizadas.
@@ -502,6 +568,7 @@ class RouteViewSet(viewsets.ModelViewSet):
                 fields = [f for f in RouteSerializer.Meta.fields if f != 'route_photos']
         
         return RouteLightSerializer
+    
     def perform_create(self, serializer):
         """
         Asigna automáticamente el usuario autenticado al crear una ruta y el spot del path.
@@ -512,6 +579,7 @@ class RouteViewSet(viewsets.ModelViewSet):
             user=self.request.user,
             spot=spot
         )    
+    
     def perform_destroy(self, instance):
         """
         Soft delete - marca como inactiva en lugar de eliminar.
@@ -519,6 +587,26 @@ class RouteViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.save()
     
+    @extend_schema(
+        summary="Añadir ruta a favoritos",
+        tags=["routes", "routes-favorite"],
+        description=(
+            "Marca una ruta como favorita para el usuario autenticado.\n\n"
+            "**Comportamiento:**\n"
+            "- Si ya existe como favorito pero estaba inactivo, lo reactiva\n"
+            "- Si ya está activo, retorna error 400\n"
+            "- Requiere autenticación\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_add_favorite`"
+        ),
+        responses={
+            200: OpenApiResponse(description="Ruta reactivada en favoritos"),
+            201: OpenApiResponse(description="Ruta añadida a favoritos exitosamente"),
+            400: OpenApiResponse(description="La ruta ya está en favoritos"),
+            401: OpenApiResponse(description="No autenticado"),
+            404: OpenApiResponse(description="Ruta no encontrada"),
+        },
+        request=None,
+    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def add_favorite(self, request, pk=None, *args, **kwargs):
         """
@@ -553,6 +641,24 @@ class RouteViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
     
+    @extend_schema(
+        summary="Eliminar ruta de favoritos",
+        tags=["routes", "routes-favorite"],
+        description=(
+            "Elimina una ruta de los favoritos del usuario (soft delete).\n\n"
+            "**Comportamiento:**\n"
+            "- Marca el favorito como inactivo\n"
+            "- Si no existe o ya está inactivo, retorna 404\n"
+            "- Requiere autenticación\n\n"
+            f"**Code:** `{_MODULE_PATH}.RouteViewSet_remove_favorite`"
+        ),
+        responses={
+            200: OpenApiResponse(description="Ruta eliminada de favoritos exitosamente"),
+            401: OpenApiResponse(description="No autenticado"),
+            404: OpenApiResponse(description="La ruta no está en favoritos"),
+        },
+        request=None,
+    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def remove_favorite(self, request, pk=None, *args, **kwargs):
         """
@@ -578,9 +684,42 @@ class RouteViewSet(viewsets.ModelViewSet):
                 {'message': 'Esta ruta no está en tus favoritos'},
                 status=status.HTTP_404_NOT_FOUND
             )
-    
 
-class RoutePhotoViewSet(viewsets.ModelViewSet):
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar fotos de rutas",
+        parameters=NESTED_PATH_PARAMS + ROUTE_PHOTO_FILTER_PARAMS,
+        tags=["routes-photos"],
+        description=(
+            "Obtiene una lista de todas las fotos de rutas.\n\n"
+            "Soporta filtrado por ruta, usuario, etc.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_list`"
+        )
+    ),
+    retrieve=extend_schema(
+        summary="Obtener detalle de foto",
+        parameters=NESTED_PATH_PARAMS,
+        tags=["routes-photos"],
+        description=(
+            "Obtiene los detalles de una foto específica.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_retrieve`"
+        )
+    ),
+    create=extend_schema(
+        summary="Subir nueva foto a ruta",
+        tags=["routes-photos"],
+        parameters=NESTED_PATH_PARAMS,
+        description=(
+            "Sube una nueva foto asociada a una ruta.\n\n"
+            "- El usuario se asigna automáticamente\n"
+            "- Debe incluir el ID de la ruta como parámetro de ruta\n"
+            "- Requiere autenticación\n"
+            "- Formato: multipart/form-data para subir imagen\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_create`"
+        )
+    ),
+)
+class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
     ViewSet para gestionar las fotos de rutas.
     """
@@ -613,6 +752,22 @@ class RoutePhotoViewSet(viewsets.ModelViewSet):
         route = get_object_or_404(Route, id=route_id, is_active=True)
         serializer.save(user=self.request.user, route=route)
     
+    @extend_schema(
+        summary="Obtener mis fotos",
+        tags=["routes-photos"],
+        parameters=NESTED_PATH_PARAMS,
+        description=(
+            "Obtiene solo las fotos subidas por el usuario autenticado.\n\n"
+            "- Filtrado automático por usuario\n"
+            "- Requiere autenticación\n"
+            "- Incluye todas las relaciones (ruta, usuario)\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_my_photos`"
+        ),
+        responses={
+            200: RoutePhotoSerializer(many=True),
+            401: OpenApiResponse(description="No autenticado"),
+        }
+    )
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def my_photos(self, request):
         """
@@ -622,9 +777,24 @@ class RoutePhotoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(photos, many=True)
         return Response(serializer.data)
 
-
+@extend_schema(
+    summary="Listar rutas favoritas del usuario",
+    description=(
+        "Obtiene la lista de rutas marcadas como favoritas por el usuario autenticado."
+        "- Solo muestra favoritos activos""- Requiere autenticación"
+        "- Incluye información completa de cada ruta"
+        f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_create`"
+    ),
+    tags=['routes-favorite'],
+    responses={
+        200: OpenApiResponse(description="Lista de rutas favoritas"),
+        401: OpenApiResponse(description="No autenticado"),
+    }
+)
 class UserFavoriteRouteView(generics.ListAPIView):
-    """Vista para listar favoritos del usuario actual"""
+    """
+    Vista para listar las rutas favoritas del usuario.
+    """
     serializer_class = UserFavoriteRouteSerializer
     permission_classes = [IsAuthenticated]
     

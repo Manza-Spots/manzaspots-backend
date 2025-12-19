@@ -276,7 +276,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
 
 @extend_schema(
     summary="Verificar Cuenta",
-    tags=["users", "auth"],
+    tags=["users"],
     description=(
         "El proposito del endpoint es usarse depues de crear un usuario como segundo paso "
         "Confirma la cuenta de un usuario mediante un token enviado por correo electrónico.\n\n"

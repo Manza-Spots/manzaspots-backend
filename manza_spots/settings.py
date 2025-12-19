@@ -333,7 +333,7 @@ if os.name == 'nt':
     
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
 REST_FRAMEWORK = {
-    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.custom_exception_handler',
+    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.Documented_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -362,8 +362,10 @@ SPECTACULAR_SETTINGS = {
         {'name': 'profiles', 'description': 'Perfiles de usuario'},
         {'name': 'spots', 'description': 'Spots y relacionado'},
         {'name': 'spot-captions', 'description': 'Fotos de los spots'},
+        {'name': 'spots-favorite', 'description' : 'Spots favoritos'},
         {'name': 'routes', 'description': 'Rutas y recorridos'},
-        {'name': 'route-captions', 'description': 'Fotos de las rutas'},
+        {'name': 'routes-photos', 'description': 'Fotos de las rutas'},
+        {'name': 'routes-favorite', 'description' : 'Rutas favoritas'},                
     ],
         
         # Configuración de componentes

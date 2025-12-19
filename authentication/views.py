@@ -21,6 +21,10 @@ from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiExample
+from rest_framework_simplejwt.views import (
+    TokenRefreshView,TokenVerifyView, TokenObtainPairView,TokenBlacklistView
+)
 
 User = get_user_model()
 _MODULE_PATH = __name__
@@ -116,10 +120,11 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     @extend_schema(
         summary="Autenticacion con Google",
         tags=["auth"],
-        description=
+        description=(
             "Autentica o registra usuarios mediante Google como proveedor externo, validando un token emitido por Google y retornando  \n\n"
             "los tokens de acceso de la aplicación\n\n"
             f"**Code:** `{_MODULE_PATH}.GoogleLogin`"
+        )
     )
 
     def post(self, request, *args, **kwargs):
@@ -152,3 +157,125 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
         return response
     
     
+#=============== DOCUMENTACION PARA TOKENS NADA MAS =====================
+
+@extend_schema(
+    summary="Renovar access token",
+    description=(
+        "Genera un nuevo **access token** usando un **refresh token válido**.\n\n"
+        "Solo funciona si el refresh token sigue siendo válido\n\n"
+        "Tiempo antes de caducar: 60 min\n\n"
+        f"**Code:** `{_MODULE_PATH}.DocumentedTokenRefreshView`"
+    ),
+    tags=["auth"],
+    examples=[
+        OpenApiExample(
+            "Request válido",
+            value={
+                "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Respuesta exitosa",
+            value={
+                "access": "nuevo_access_token"
+            },
+            response_only=True,
+        ),
+    ],
+)
+class DocumentedTokenRefreshView(TokenRefreshView):
+    pass
+
+@extend_schema(
+    summary="Verificar token JWT",
+    tags=["auth"],
+    description=
+    "Verifica si un **JWT** es válido.\n\n"
+    "Tiempo antes de caducar: 7 dias\n\n"
+    f"**Code:** `{_MODULE_PATH}.DocumentedTokenRefreshView`"
+    ,
+    examples=[
+        OpenApiExample(
+            "Request",
+            value={
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+            },
+            request_only=True,
+        ),
+    ],
+)
+class DocumentedTokenVerifyView(TokenVerifyView):
+    pass
+
+class DocumentedTokenObtainPairView(TokenObtainPairView):
+    @extend_schema(
+        tags=['auth'],
+        summary='Iniciar Sesion',
+        description='Endpoint para autenticacin. \n\n Retorna access y refresh tokens. \n\n'
+                    f"**Code:** `{_MODULE_PATH}.DocumentedTokenObtainPairView`",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'username': {'type': 'string', 'example': 'usuario@example.com'},
+                    'password': {'type': 'string', 'example': 'password123'}
+                },
+                'required': ['username', 'password']
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description='Login exitoso',
+                examples=[
+                    OpenApiExample(
+                        'Respuesta exitosa',
+                        value={
+                            'access': 'eyJ0eXAiOiJKV1QiLCJhbGc...',
+                            'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGc...'
+                        }
+                    )
+                ]
+            ),
+            401: OpenApiResponse(description='Credenciales inválidas')
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+    
+class DocumentedTokenBlacklistView(TokenBlacklistView):
+    @extend_schema(
+        tags=['auth'],
+        summary='Cerrar sesión',
+        description='Invalida el refresh token agregándolo a la blacklist. \n\n El access token seguirá siendo válido hasta que expire. \n\n'
+                    f"**Code:** `{_MODULE_PATH}.DocumentedTokenBlacklistView`",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'refresh': {
+                        'type': 'string',
+                        'description': 'Refresh token a invalidar',
+                        'example': 'eyJ0eXAiOiJKV1QiLCJhbGc...'
+                    }
+                },
+                'required': ['refresh']
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description='Logout exitoso',
+                examples=[
+                    OpenApiExample(
+                        'Respuesta exitosa',
+                        value={'detail': 'Sesión cerrada exitosamente'}
+                    )
+                ]
+            ),
+            400: OpenApiResponse(description='Token inválido o ya invalidado'),
+            401: OpenApiResponse(description='No autenticado')
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
