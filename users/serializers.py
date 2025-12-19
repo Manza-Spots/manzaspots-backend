@@ -5,10 +5,39 @@ from django.contrib.auth.password_validation import validate_password
 from users.models import UserProfile
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    distance_traveled_km = serializers.SerializerMethodField()
+    routes_created = serializers.SerializerMethodField()
+    spots_created = serializers.SerializerMethodField()
     class Meta: 
         model = UserProfile
-        fields = ['distance_traveled_km', 'profile_thum_path', 'routes_created', 'spot_created']
-        read_only_fields = ['distance_traveled_km', 'routes_created', 'spot_created']
+    class Meta:
+        model = UserProfile
+        fields = [
+            'user',
+            'profile_thum_path',
+            'distance_traveled_km',
+            'routes_created',
+            'spots_created',
+        ]
+        read_only_fields = [
+            'distance_traveled_km',
+            'routes_created',
+            'spots_created',
+        ]
+    
+    def get_distance_traveled_km(self, obj):
+        return obj.distance_traveled_km()
+    
+    def get_routes_created(self, obj):
+        return obj.routes_create()
+    
+    def get_spots_created(self, obj):
+        return obj.spot_create()
+    
+class UserProfileThumbSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['profile_thum_path']
         
 class UserSerializer(serializers.ModelSerializer):
     """Serializer para lectura de usuarios"""

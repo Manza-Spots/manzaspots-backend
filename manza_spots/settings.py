@@ -359,7 +359,6 @@ SPECTACULAR_SETTINGS = {
     'TAGS': [
         {'name': 'auth', 'description': 'Autenticación, providers y tokens JWT'},
         {'name': 'users', 'description': 'Gestión de usuarios'},
-        {'name': 'profiles', 'description': 'Perfiles de usuario'},
         {'name': 'spots', 'description': 'Spots y relacionado'},
         {'name': 'spot-captions', 'description': 'Fotos de los spots'},
         {'name': 'spots-favorite', 'description' : 'Spots favoritos'},

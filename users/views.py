@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.models import User
 from core.mixins import SentryErrorHandlerMixin, ViewSetSentryMixin
 from users.models import UserProfile
-from .serializers import (UserCreateSerializer, UserProfileSerializer, UserSerializer, 
+from .serializers import (UserCreateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserSerializer, 
                           UserUpdateSerializer)
 from core.services.email_service import ConfirmUserEmail
 from django.conf import settings
@@ -16,6 +16,11 @@ from users.services import UsersService
 from rest_framework import viewsets, permissions, generics
 from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
+from rest_framework.mixins import (
+    ListModelMixin,
+    UpdateModelMixin
+)
+from rest_framework.generics import UpdateAPIView
 
 _MODULE_PATH = __name__
 
@@ -338,46 +343,22 @@ def confirm_user(request):
         success_message={'detail': 'Correo verificado con éxito'}
     )
 
-#================================================PENDIENTE=======================================================
-@extend_schema_view(
-    retrieve=extend_schema(
-        summary="Obtener perfil del usuario",
-        tags=["profiles"],
-        description=(
-            "Obtiene el perfil del usuario autenticado actualmente.\n\n"
-            "Este endpoint retorna únicamente el perfil asociado al usuario en sesión.\n\n"
-            f"**Code:** `{_MODULE_PATH}.UserProfileView_retrieve`"
-        ),
-        responses={200: UserProfileSerializer}
+@extend_schema(
+    summary="Actualizar thumbnail del perfil",
+    tags=["users"],
+    description=(
+        "Actualiza únicamente la imagen de perfil (thumbnail) del usuario autenticado.\n\n"
+        "Este endpoint **no permite** modificar ningún otro campo del perfil.\n\n"
+        "No requiere enviar ID, el perfil se obtiene automáticamente desde la sesión activa.\n\n"
+        f"**Code:** `{_MODULE_PATH}.UpdateProfileThumbView`"
     ),
-    update=extend_schema(
-        summary="Actualizar perfil del usuario",
-        tags=["profiles"],
-        description=(
-            "Actualiza completamente el perfil del usuario autenticado.\n\n"
-            "Todos los campos del perfil deben ser enviados.\n\n"
-            "Requiere autenticación.\n\n"
-            f"**Code:** `{_MODULE_PATH}.UserProfileView_update`"
-        ),
-        request=UserProfileSerializer,
-        responses={200: UserProfileSerializer}
-    ),
-    partial_update=extend_schema(
-        summary="Actualizar perfil parcialmente",
-        tags=["profiles"],
-        description=(
-            "Actualiza uno o más campos del perfil del usuario autenticado.\n\n"
-            "Solo se envían los campos que se desean modificar.\n\n"
-            "Requiere autenticación.\n\n"
-            f"**Code:** `{_MODULE_PATH}.UserProfileView_partial_update`"
-        ),
-        request=UserProfileSerializer,
-        responses={200: UserProfileSerializer}
-    )
+    request=UserProfileThumbSerializer,
+    responses={200: UserProfileThumbSerializer}
 )
-class UserProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
+class UpdateProfileThumbView(UpdateAPIView):
+    serializer_class = UserProfileThumbSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = UserProfile.objects.all()
+    
     def get_object(self):
         return self.request.user.profile
