@@ -122,9 +122,6 @@ class RoutePhotoCreateSerializer(serializers.ModelSerializer):
         model = RoutePhoto
         fields = ['img_path', 'location']
     
-    
-
-
 class RouteSerializer(serializers.ModelSerializer):
     route_photos = RoutePhotoSerializer(many=True, read_only=True, source='photo')  
     user_name = serializers.CharField(source='user.username', read_only=True)

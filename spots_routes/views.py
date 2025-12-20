@@ -12,7 +12,9 @@ from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
 )
+from authentication.views import User
 from core.mixins import ViewSetSentryMixin
+from core.permission import IsOwnerOrReadOnly
 from spots_routes.filters import RouteFilter, RoutePhotoFilter
 from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
 from spots_routes.serializer import (
@@ -369,7 +371,7 @@ class UserFavoriteSpotsView(generics.ListAPIView):
         tags=["spot-captions"],
         description=(
             "Obtiene la lista de captions (fotos) del spot compartido en el primer parametro de ruta.\n\n "
-            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                            
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                
         ),
         parameters=[
             OpenApiParameter(
@@ -385,7 +387,7 @@ class UserFavoriteSpotsView(generics.ListAPIView):
         summary="Obtener caption",
         tags=["spot-captions"],
         description="Obtiene los detalles de un caption específico por su ID. \n\n"
-                    f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                            
+                    f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_list`"                                                
     ),
     create=extend_schema(
         summary="Crear caption",
@@ -394,8 +396,50 @@ class UserFavoriteSpotsView(generics.ListAPIView):
             "Crea un nuevo caption (comentario) para un spot. \n\n"
             "El caption se asocia automáticamente al usuario autenticado. \n\n"
             "El ID del spot debe ser proporcionado en la URL como parametro de ruta.\n\n"
-            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_create`"                                                            
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_create`"                                                
         )
+    ),
+    update=extend_schema(
+        summary="Actualizar caption completo",
+        tags=["spot-captions"],
+        description=(
+            "Actualiza todos los campos de un caption.\n\n"
+            "Solo el propietario del caption o un administrador pueden actualizarlo.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_update`"
+        ),
+        responses={
+            200: SpotCaptionSerializer,
+            403: OpenApiResponse(description="No tienes permisos para editar este caption"),
+            404: OpenApiResponse(description="Caption no encontrado")
+        }
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar caption parcialmente",
+        tags=["spot-captions"],
+        description=(
+            "Actualiza uno o más campos de un caption.\n\n"
+            "Solo el propietario del caption o un administrador pueden actualizarlo.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_partial_update`"
+        ),
+        responses={
+            200: SpotCaptionSerializer,
+            403: OpenApiResponse(description="No tienes permisos para editar este caption"),
+            404: OpenApiResponse(description="Caption no encontrado")
+        }
+    ),
+    destroy=extend_schema(
+        summary="Eliminar caption",
+        tags=["spot-captions"],
+        description=(
+            "Elimina un caption. Solo el propietario o un administrador pueden eliminarlo.\n\n"
+            "Este endpoint realizará la eliminación del registro.\n\n"
+            f"**Code:** `{_MODULE_PATH}.SpotCaptionViewSet_destroy`"
+        ),
+        responses={
+            204: OpenApiResponse(description="Caption eliminado correctamente"),
+            403: OpenApiResponse(description="No tienes permisos para eliminar este caption"),
+            404: OpenApiResponse(description="Caption no encontrado")
+        }
     )
 )
 class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
@@ -405,7 +449,7 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action == 'create' or 'update' or 'partial_update':
             return SpotCaptionCreateSerializer
         return SpotCaptionSerializer
     
@@ -446,19 +490,6 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         
 
 #====================================== ROUTES =================================================
-
-
-class IsOwnerOrReadOnly(permissions.BasePermission):
-    """
-    Permiso personalizado para permitir solo a los dueños editar un objeto.
-    """
-    def has_object_permission(self, request, view, obj):
-        # Los permisos de lectura se permiten para cualquier request
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        
-        # Los permisos de escritura solo se permiten al dueño
-        return obj.user == request.user
 
 @extend_schema_view(
     list=extend_schema(
@@ -718,6 +749,51 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_create`"
         )
     ),
+    update=extend_schema(
+        summary="Actualizar foto de ruta (completo)",
+        tags=["routes-photos"],
+        parameters=NESTED_PATH_PARAMS,
+        description=(
+            "Actualiza todos los campos de una foto de ruta.\n\n"
+            "Solo el propietario de la foto o un administrador pueden actualizarla.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_update`"
+        ),
+        responses={
+            200: RoutePhotoSerializer,
+            403: OpenApiResponse(description="No tienes permisos para editar esta foto"),
+            404: OpenApiResponse(description="Foto no encontrada")
+        }
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar foto de ruta (parcial)",
+        tags=["routes-photos"],
+        parameters=NESTED_PATH_PARAMS,
+        description=(
+            "Actualiza uno o más campos de una foto de ruta.\n\n"
+            "Solo el propietario de la foto o un administrador pueden actualizarla.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_partial_update`"
+        ),
+        responses={
+            200: RoutePhotoSerializer,
+            403: OpenApiResponse(description="No tienes permisos para editar esta foto"),
+            404: OpenApiResponse(description="Foto no encontrada")
+        }
+    ),
+    destroy=extend_schema(
+        summary="Eliminar foto de ruta",
+        tags=["routes-photos"],
+        parameters=NESTED_PATH_PARAMS,
+        description=(
+            "Elimina una foto de ruta. Solo el propietario o un administrador pueden eliminarla.\n\n"
+            "La operación eliminará el recurso correspondiente.\n\n"
+            f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_destroy`"
+        ),
+        responses={
+            204: OpenApiResponse(description="Foto eliminada correctamente"),
+            403: OpenApiResponse(description="No tienes permisos para eliminar esta foto"),
+            404: OpenApiResponse(description="Foto no encontrada")
+        }
+    )
 )
 class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
@@ -732,7 +808,7 @@ class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         """
         Usa diferentes serializers según la acción.
         """
-        if self.action == 'create':
+        if self.action == 'create' or 'update' or 'partial_update':
             return RoutePhotoCreateSerializer
         return RoutePhotoSerializer
     

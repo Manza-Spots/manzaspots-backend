@@ -4,6 +4,7 @@ from urllib import request
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from authentication.docs.auth import CONFIRM_NEW_PASSWORD_RESPONSE, GOOGLE_LOGIN_REQUEST, LOGIN_RESPONSE, REQUEST_NEW_PASSWORD_RESPONSE
 from core.mixins import SentryErrorHandlerMixin
 from .serializers import PasswordResetRequestSerializer, SetNewPasswordSerializer
 from .services import PasswordResetService
@@ -34,7 +35,6 @@ class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView)
     permission_classes = [AllowAny]
     sentry_operation_name = "password_reset_request"
     
-    #Open Api Redoc
     @extend_schema(
         summary="Solicitar nueva contraseña",
         tags=["auth"],
@@ -43,7 +43,8 @@ class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView)
             "Si el correo no existe, no se revela esta información al usuario.  \n\n"
             "Si existe, se envía un token de restablecimiento al correo registrado.\n\n"
             f"**Code:** `{_MODULE_PATH}.PasswordResetRequestView`"
-        )    
+        ),
+        responses=REQUEST_NEW_PASSWORD_RESPONSE
     )
     
     def post(self, request):
@@ -55,9 +56,7 @@ class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView)
                 'authenticated': request.user.is_authenticated,
                 'component': f'{_MODULE_PATH}._request_password_reset',                
             },
-            success_message={
-                'detail': 'Si el usuario existe, se enviará un correo con instrucciones.'
-            },
+            success_message = { "detail": "Si el usuario existe, se enviará un correo con instrucciones."},
             success_status=status.HTTP_200_OK
         )
                 
@@ -81,8 +80,10 @@ class PasswordResetConfirmView(SentryErrorHandlerMixin, generics.GenericAPIView)
                 "Actualiza la contraseña del usuario utilizando el token de restablecimiento y el identificador \n\n"
                 "de usuario previamente enviados en la solicitud de recuperación de contraseña. \n\n  "
                 f"**Code:** `{_MODULE_PATH}.PasswordResetConfirmView`"
-            )    
-        )
+            ),
+            responses=CONFIRM_NEW_PASSWORD_RESPONSE,
+       )
+    
     
     def post(self, request):
         return self.handle_with_sentry(
@@ -111,21 +112,22 @@ class PasswordResetConfirmView(SentryErrorHandlerMixin, generics.GenericAPIView)
         
         self.logger.info(f'Contraseña restablecida exitosamente, id:{user.id},{user.email} ')
         
+@extend_schema(
+    summary="Autenticacion con Google",
+    tags=["auth"],
+    description=(
+        "Autentica o registra usuarios mediante Google como proveedor externo, validando un token emitido por Google y retornando "
+        "los tokens de acceso de la aplicación\n\n"
+        f"**Code:** `{_MODULE_PATH}.GoogleLogin`"
+    ),
+    request=GOOGLE_LOGIN_REQUEST,
+    responses=LOGIN_RESPONSE,
+)
 class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
     client_class = OAuth2Client
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
     sentry_operation_name = "google_authentication"
-
-    @extend_schema(
-        summary="Autenticacion con Google",
-        tags=["auth"],
-        description=(
-            "Autentica o registra usuarios mediante Google como proveedor externo, validando un token emitido por Google y retornando  \n\n"
-            "los tokens de acceso de la aplicación\n\n"
-            f"**Code:** `{_MODULE_PATH}.GoogleLogin`"
-        )
-    )
 
     def post(self, request, *args, **kwargs):
         return self.handle_with_sentry(
@@ -179,6 +181,7 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
         OpenApiExample(
             "Respuesta exitosa",
             value={
+                "refresh":"nuevo_refresh_token",
                 "access": "nuevo_access_token"
             },
             response_only=True,
@@ -209,8 +212,7 @@ class DocumentedTokenRefreshView(TokenRefreshView):
 class DocumentedTokenVerifyView(TokenVerifyView):
     pass
 
-class DocumentedTokenObtainPairView(TokenObtainPairView):
-    @extend_schema(
+@extend_schema(
         tags=['auth'],
         summary='Iniciar Sesion',
         description='Endpoint para autenticacin. \n\n Retorna access y refresh tokens. \n\n'
@@ -225,27 +227,13 @@ class DocumentedTokenObtainPairView(TokenObtainPairView):
                 'required': ['username', 'password']
             }
         },
-        responses={
-            200: OpenApiResponse(
-                description='Login exitoso',
-                examples=[
-                    OpenApiExample(
-                        'Respuesta exitosa',
-                        value={
-                            'access': 'eyJ0eXAiOiJKV1QiLCJhbGc...',
-                            'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGc...'
-                        }
-                    )
-                ]
-            ),
-            401: OpenApiResponse(description='Credenciales inválidas')
-        }
+        responses = LOGIN_RESPONSE
     )
+class DocumentedTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
     
-class DocumentedTokenBlacklistView(TokenBlacklistView):
-    @extend_schema(
+@extend_schema(
         tags=['auth'],
         summary='Cerrar sesión',
         description='Invalida el refresh token agregándolo a la blacklist. \n\n El access token seguirá siendo válido hasta que expire. \n\n'
@@ -277,5 +265,6 @@ class DocumentedTokenBlacklistView(TokenBlacklistView):
             401: OpenApiResponse(description='No autenticado')
         }
     )
+class DocumentedTokenBlacklistView(TokenBlacklistView):    
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
