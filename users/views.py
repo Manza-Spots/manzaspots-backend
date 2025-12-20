@@ -5,9 +5,11 @@ from rest_framework.decorators import action, api_view, permission_classes,authe
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.models import User
-from core.mixins import SentryErrorHandlerMixin, ViewSetSentryMixin
+from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
+from core.permission import IsOwnerOrReadOnly
+from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
-from .serializers import (UserCreateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserSerializer, 
+from .serializers import (UserAdminSerializer, UserCreateSerializer, UserPrivateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserPublicSerializer, 
                           UserUpdateSerializer)
 from core.services.email_service import ConfirmUserEmail
 from django.conf import settings
@@ -33,17 +35,16 @@ _MODULE_PATH = __name__
             "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_list`"
         ),
-        responses={200: UserSerializer(many=True)}
+        responses={200: UserAdminSerializer(many=True)}
     ),
     retrieve=extend_schema(
         summary="Obtener usuario",
         tags=["users"],
         description=(
             "Obtiene la información detallada de un usuario por su ID.\n\n"
-            "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_retrieve`"
         ),
-        responses={200: UserSerializer}
+        responses={200: UserAdminSerializer}
     ),
     create=extend_schema(
         summary="Crear usuario",
@@ -56,7 +57,7 @@ _MODULE_PATH = __name__
         ),
         request=UserCreateSerializer,
         responses={
-            201: OpenApiResponse(description="Usuario creado y correo enviado"),
+            201: OpenApiResponse(description="Usuario creado. Revisa tu correo para verificar la cuenta."),
             400: OpenApiResponse(description="Datos inválidos")
         }
     ),
@@ -69,7 +70,7 @@ _MODULE_PATH = __name__
             f"**Code:** `{_MODULE_PATH}.UserViewSet_update`"
         ),
         request=UserUpdateSerializer,
-        responses={200: UserSerializer}
+        responses={200: UserAdminSerializer}
     ),
     partial_update=extend_schema(
         summary="Actualizar usuario parcialmente",
@@ -80,7 +81,7 @@ _MODULE_PATH = __name__
             f"**Code:** `{_MODULE_PATH}.UserViewSet_partial_update`"
         ),
         request=UserUpdateSerializer,
-        responses={200: UserSerializer}
+        responses={200: UserAdminSerializer}
     ),
     destroy=extend_schema(
         summary="Eliminar usuario",
@@ -94,26 +95,55 @@ _MODULE_PATH = __name__
         responses={204: OpenApiResponse(description="Usuario desactivado")}
     )
 )
-class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
+class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
     queryset = User.objects.all()
     
     def get_serializer_class(self):
         """Retorna el serializer apropiado según la acción"""
+        
         if self.action == 'create':
             return UserCreateSerializer
+        
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
-
-        return UserSerializer
+        
+        elif self.action == 'retrieve':
+            if self.request.user.is_staff:
+                return UserAdminSerializer
+            
+            elif self.is_own_profile():
+                return UserPrivateSerializer
+            
+            else:
+                return UserPublicSerializer
+        
+        elif self.action == 'list':
+            if self.request.user.is_staff:
+                return UserAdminSerializer
+            else:
+                return UserPublicSerializer
+        
+        return UserAdminSerializer
     
     def get_permissions(self):
         """Define permisos según la acción"""
+        
+        # Registrarse - cualquiera puede
         if self.action == 'create':
-            # Cualquiera puede registrarse
             permission_classes = [AllowAny]
-        else:
-            # Solo administradores para otras operaciones
+        
+        elif self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]  
+        
+        elif self.action in ['update', 'partial_update']:
+            permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+        
+        elif self.action == 'destroy':
             permission_classes = [IsAdminUser]
+        
+        else:
+            permission_classes = [IsAuthenticated]
+        
         return [permission() for permission in permission_classes]
     
     def perform_destroy(self, instance):
@@ -168,11 +198,8 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_activate`"
         ),
-        responses={
-            200: OpenApiResponse(description="Usuario activado"),
-            403: OpenApiResponse(description="No autorizado"),
-            404: OpenApiResponse(description="Usuario no encontrado")
-        }
+        request=None,   
+        responses=RESPONSE_ACTIVATE_USER
     )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def activate(self, request, pk=None):
@@ -197,11 +224,8 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_deactivate`"
         ),
-        responses={
-            200: OpenApiResponse(description="Usuario desactivado"),
-            403: OpenApiResponse(description="No autorizado"),
-            404: OpenApiResponse(description="Usuario no encontrado")
-        }
+        responses=RESPONSE_DESACTIVATE_USER,
+        request=None
     )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def deactivate(self, request, pk=None):
@@ -226,7 +250,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_active`"
         ),
-        responses={200: UserSerializer(many=True)}
+        responses={200: UserAdminSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def active(self, request):
@@ -246,7 +270,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             "Solo accesible para administradores.\n\n"
             f"**Code:** `{_MODULE_PATH}.UserViewSet_inactive`"
         ),
-        responses={200: UserSerializer(many=True)}
+        responses={200: UserAdminSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def inactive(self, request):
@@ -267,7 +291,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             f"**Code:** `{_MODULE_PATH}.UserViewSet_me`"
         ),
         responses={
-            200: UserSerializer,
+            200: UserAdminSerializer,
             401: OpenApiResponse(description="No autenticado")
         }
     )
@@ -283,7 +307,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     summary="Verificar Cuenta",
     tags=["users"],
     description=(
-        "El proposito del endpoint es usarse depues de crear un usuario como segundo paso "
+        "Este endpoint se utiliza despues de crear un usuario, \n\n"
         "Confirma la cuenta de un usuario mediante un token enviado por correo electrónico.\n\n"
         "El token se envía como query parameter y se valida para activar la cuenta.\n\n"
         "Este endpoint no requiere autenticación.\n\n"
@@ -299,7 +323,7 @@ class UserViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         )
     ],
     responses={
-        200: OpenApiResponse(description="Correo verificado con éxito"),
+        200: OpenApiResponse(description="Usuario verificado con éxito"),
         400: OpenApiResponse(description="Token no proporcionado"),
         401: OpenApiResponse(description="Token inválido o expirado"),
         404: OpenApiResponse(description="Usuario no encontrado"),

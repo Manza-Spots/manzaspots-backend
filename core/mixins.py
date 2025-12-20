@@ -388,3 +388,17 @@ class ViewSetSentryMixin(SentryErrorHandlerMixin):
                 request=self.request
             )
             return super().handle_exception(exc)
+
+
+class OwnerCheckMixin:
+    """Mixin que agrega método para verificar ownership"""
+    
+    def is_own_profile(self):
+        """Verifica si está viendo su propio perfil"""
+        if not self.request.user.is_authenticated:
+            return False
+        
+        try:
+            return int(self.kwargs.get('pk')) == self.request.user.id
+        except (ValueError, TypeError, AttributeError):
+            return False
