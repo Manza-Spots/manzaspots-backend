@@ -1,11 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserProfileView, UserViewSet, verify_email
+from .views import UpdateProfileThumbView, UserViewSet, confirm_user
+from rest_framework_nested.routers import NestedDefaultRouter
 
 router = DefaultRouter()
 router.register(r'', UserViewSet, basename='user')
+
 user_patterns = ([
-    path('verify-email/', verify_email, name='verify-email'),
-    path('profile/', UserProfileView.as_view(), name='verify-email'),    
+    path('confirm-user/', confirm_user, name='verify-email'),
+    path('profile/thumb/', UpdateProfileThumbView.as_view(), name='profile-thumb'),
     path('', include(router.urls)),
 ], 'users')

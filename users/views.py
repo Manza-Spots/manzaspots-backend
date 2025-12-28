@@ -5,9 +5,11 @@ from rest_framework.decorators import action, api_view, permission_classes,authe
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.models import User
-from core.mixins import SentryErrorHandlerMixin
+from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
+from core.permission import IsOwnerOrReadOnly
+from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
-from .serializers import (UserCreateSerializer, UserProfileSerializer, UserSerializer, 
+from .serializers import (UserAdminSerializer, UserCreateSerializer, UserPrivateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserPublicSerializer, 
                           UserUpdateSerializer)
 from core.services.email_service import ConfirmUserEmail
 from django.conf import settings
@@ -15,41 +17,133 @@ from django.core.mail import send_mail
 from users.services import UsersService
 from rest_framework import viewsets, permissions, generics
 from rest_framework.exceptions import PermissionDenied
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
+from rest_framework.mixins import (
+    ListModelMixin,
+    UpdateModelMixin
+)
+from rest_framework.generics import UpdateAPIView
 
-class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
-    """
-    ViewSet para manejar usuarios.
-    
-    Endpoints:
-    - GET /users/                 -> Listar usuarios *
-    - POST /users/                -> Crear usuario 
-    - Get /users/me               -> Obtener usuario actual *
-    - GET /users/{id}/            -> Obtener usuario *
-    - PUT /users/{id}/            -> Actualizar usuario completo *
-    - PATCH /users/{id}/          -> Actualizar usuario parcial
-    - DELETE /users/{id}/         -> Eliminar usuario
-    - POST /users/{id}/activate/  -> Activar usuario
-    - POST /users/{id}/deactivate/ -> Desactivar usuario
-    """
+_MODULE_PATH = __name__
+
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar usuarios",
+        tags=["users"],
+        description=(
+            "Obtiene la lista completa de usuarios del sistema.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_list`"
+        ),
+        responses={200: UserAdminSerializer(many=True)}
+    ),
+    retrieve=extend_schema(
+        summary="Obtener usuario",
+        tags=["users"],
+        description=(
+            "Obtiene la información detallada de un usuario por su ID.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_retrieve`"
+        ),
+        responses={200: UserAdminSerializer}
+    ),
+    create=extend_schema(
+        summary="Crear usuario",
+        tags=["users"],
+        description=(
+            "Crea un nuevo usuario en estado inactivo.\n\n"
+            "Se envía un correo de verificación para activar la cuenta.\n\n"
+            "Accesible para cualquier usuario (registro público).\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_create`"
+        ),
+        request=UserCreateSerializer,
+        responses={
+            201: OpenApiResponse(description="Usuario creado. Revisa tu correo para verificar la cuenta."),
+            400: OpenApiResponse(description="Datos inválidos")
+        }
+    ),
+    update=extend_schema(
+        summary="Actualizar usuario completo",
+        tags=["users"],
+        description=(
+            "Actualiza todos los campos de un usuario.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_update`"
+        ),
+        request=UserUpdateSerializer,
+        responses={200: UserAdminSerializer}
+    ),
+    partial_update=extend_schema(
+        summary="Actualizar usuario parcialmente",
+        tags=["users"],
+        description=(
+            "Actualiza uno o más campos de un usuario.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_partial_update`"
+        ),
+        request=UserUpdateSerializer,
+        responses={200: UserAdminSerializer}
+    ),
+    destroy=extend_schema(
+        summary="Eliminar usuario",
+        tags=["users"],
+        description=(
+            "Desactiva un usuario del sistema (soft delete).\n\n"
+            "El usuario no se elimina físicamente.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_destroy`"
+        ),
+        responses={204: OpenApiResponse(description="Usuario desactivado")}
+    )
+)
+class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
     queryset = User.objects.all()
     
     def get_serializer_class(self):
         """Retorna el serializer apropiado según la acción"""
+        
         if self.action == 'create':
             return UserCreateSerializer
+        
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
-
-        return UserSerializer
+        
+        elif self.action == 'retrieve':
+            if self.request.user.is_staff:
+                return UserAdminSerializer
+            
+            elif self.is_own_profile():
+                return UserPrivateSerializer
+            
+            else:
+                return UserPublicSerializer
+        
+        elif self.action == 'list':
+            if self.request.user.is_staff:
+                return UserAdminSerializer
+            else:
+                return UserPublicSerializer
+        
+        return UserAdminSerializer
     
     def get_permissions(self):
         """Define permisos según la acción"""
+        
+        # Registrarse - cualquiera puede
         if self.action == 'create':
-            # Cualquiera puede registrarse
             permission_classes = [AllowAny]
-        else:
-            # Solo administradores para otras operaciones
+        
+        elif self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]  
+        
+        elif self.action in ['update', 'partial_update']:
+            permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+        
+        elif self.action == 'destroy':
             permission_classes = [IsAdminUser]
+        
+        else:
+            permission_classes = [IsAuthenticated]
+        
         return [permission() for permission in permission_classes]
     
     def perform_destroy(self, instance):
@@ -96,6 +190,17 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
             headers=headers
         )
     
+    @extend_schema(
+        summary="Activar usuario",
+        tags=["users"],
+        description=(
+            "Activa un usuario del sistema.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_activate`"
+        ),
+        request=None,   
+        responses=RESPONSE_ACTIVATE_USER
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def activate(self, request, pk=None):
         """
@@ -111,6 +216,17 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
     
+    @extend_schema(
+        summary="Desactivar usuario",
+        tags=["users"],
+        description=(
+            "Desactiva un usuario del sistema.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_deactivate`"
+        ),
+        responses=RESPONSE_DESACTIVATE_USER,
+        request=None
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def deactivate(self, request, pk=None):
         """
@@ -126,6 +242,16 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
     
+    @extend_schema(
+        summary="Usuarios activos",
+        tags=["users"],
+        description=(
+            "Obtiene la lista de usuarios activos.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_active`"
+        ),
+        responses={200: UserAdminSerializer(many=True)}
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def active(self, request):
         """
@@ -136,6 +262,16 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(active_users, many=True)
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Usuarios inactivos",
+        tags=["users"],
+        description=(
+            "Obtiene la lista de usuarios inactivos.\n\n"
+            "Solo accesible para administradores.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_inactive`"
+        ),
+        responses={200: UserAdminSerializer(many=True)}
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def inactive(self, request):
         """
@@ -146,6 +282,19 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(inactive_users, many=True)
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Usuario actual",
+        tags=["users"],
+        description=(
+            "Obtiene la información del usuario autenticado actualmente.\n\n"
+            "Accesible para cualquier usuario autenticado.\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_me`"
+        ),
+        responses={
+            200: UserAdminSerializer,
+            401: OpenApiResponse(description="No autenticado")
+        }
+    )
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def me(self, request):
         """
@@ -153,12 +302,38 @@ class UserViewSet(SentryErrorHandlerMixin, viewsets.ModelViewSet):
         """
         serializer = self.get_serializer(request.user)
         return Response(serializer.data) 
-        
 
+@extend_schema(
+    summary="Verificar Cuenta",
+    tags=["users"],
+    description=(
+        "Este endpoint se utiliza despues de crear un usuario, \n\n"
+        "Confirma la cuenta de un usuario mediante un token enviado por correo electrónico.\n\n"
+        "El token se envía como query parameter y se valida para activar la cuenta.\n\n"
+        "Este endpoint no requiere autenticación.\n\n"
+        f"**Code:** `{_MODULE_PATH}.confirm_user`"
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="token",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description="Token de verificación enviado por correo",
+            required=True
+        )
+    ],
+    responses={
+        200: OpenApiResponse(description="Usuario verificado con éxito"),
+        400: OpenApiResponse(description="Token no proporcionado"),
+        401: OpenApiResponse(description="Token inválido o expirado"),
+        404: OpenApiResponse(description="Usuario no encontrado"),
+        409: OpenApiResponse(description="El correo ya fue verificado")
+    }
+)        
 @api_view(['GET'])
 @permission_classes([AllowAny])
 @authentication_classes([])
-def verify_email(request):
+def confirm_user(request):
     handler = SentryErrorHandlerMixin()  
     handler._logger = logging.getLogger(__name__)
     
@@ -178,23 +353,36 @@ def verify_email(request):
             return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         
         if user.is_active:
-            return Response({'detail': 'El correo ya fue verificado.'}, status=status.HTTP_409_CONFLICT)
+            return Response({'detail': 'El usuario ya fue verificado.'}, status=status.HTTP_409_CONFLICT)
                 
         user.is_active = True
         user.save()
         handler.logger.info(f'Se confirmo el correo de {user.username}, ahora su cuenta esta activa')
-        return Response({'detail': 'Correo verificado con éxito.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Usuario verificado con éxito.'}, status=status.HTTP_200_OK)
     
     return handler.handle_with_sentry(
         operation=operation,
         request=request,
-        tags={'endpoint': 'verify_email'},
+        tags={'endpoint': 'confirm_user'},
         success_message={'detail': 'Correo verificado con éxito'}
     )
 
-class UserProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
+@extend_schema(
+    summary="Actualizar thumbnail del perfil",
+    tags=["users"],
+    description=(
+        "Actualiza únicamente la imagen de perfil (thumbnail) del usuario autenticado.\n\n"
+        "Este endpoint **no permite** modificar ningún otro campo del perfil.\n\n"
+        "No requiere enviar ID, el perfil se obtiene automáticamente desde la sesión activa.\n\n"
+        f"**Code:** `{_MODULE_PATH}.UpdateProfileThumbView`"
+    ),
+    request=UserProfileThumbSerializer,
+    responses={200: UserProfileThumbSerializer}
+)
+class UpdateProfileThumbView(UpdateAPIView):
+    serializer_class = UserProfileThumbSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = UserProfile.objects.all()
+    
     def get_object(self):
         return self.request.user.profile

@@ -32,8 +32,14 @@ sentry_sdk.init(
 #----------------------------- CARPETAS RELEVANTES ----------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 LOG_DIR = BASE_DIR / 'logs'
 LOG_DIR.mkdir(exist_ok=True)
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
 #----------------------------- APPS INSTALADAS ----------------------------------------------------
@@ -49,6 +55,9 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'dj_rest_auth',
     'dj_rest_auth.registration',
+    'drf_spectacular',
+    'django_filters',
+    'rest_framework_gis',
     
     # JWT apps
     'rest_framework',
@@ -324,8 +333,8 @@ if os.name == 'nt':
     
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
 REST_FRAMEWORK = {
-    
-    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.custom_exception_handler',
+    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.Documented_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -338,6 +347,33 @@ REST_FRAMEWORK = {
         'manza_spots.renderers.StandardJSONRenderer',
     ],
 
+}
+
+#-------------------------------------------- SPECTACULAR SETTINGS  ------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Manza Spots',
+    'DESCRIPTION': 'API para gestión de spots, rutas y perfiles de usuarios',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    
+    'TAGS': [
+        {'name': 'auth', 'description': 'Autenticación, providers y tokens JWT'},
+        {'name': 'users', 'description': 'Gestión de usuarios'},
+        {'name': 'spots', 'description': 'Spots y relacionado'},
+        {'name': 'spot-captions', 'description': 'Fotos de los spots'},
+        {'name': 'spots-favorite', 'description' : 'Spots favoritos'},
+        {'name': 'routes', 'description': 'Rutas y recorridos'},
+        {'name': 'routes-photos', 'description': 'Fotos de las rutas'},
+        {'name': 'routes-favorite', 'description' : 'Rutas favoritas'},                
+    ],
+        
+        # Configuración de componentes
+    'COMPONENT_SPLIT_REQUEST': True,  # Separa request/response schemas
+    'SCHEMA_PATH_PREFIX': r'/api/',   # Prefijo de tus URLs
+    
+    # Autenticación
+    'SECURITY': [{'bearerAuth': []}],
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
 }
 
 
@@ -358,3 +394,4 @@ AUTHENTICATION_BACKENDS = [
 
 #Obligamos a django a crear los loggins
 logging.config.dictConfig(settings.LOGGING)
+

@@ -22,6 +22,11 @@ dj-rest-auth = {extras = ["with_social"], version = "*"}
 psycopg = "*"
 psycopg-binary = "*"
 itsdangerous = "*"
+pillow = "*"
+drf-nested-routers = "*"
+drf-spectacular = "*"
+django-filter = "*"
+djangorestframework-gis = "*"
 
 [dev-packages]
 

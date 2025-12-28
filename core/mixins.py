@@ -331,3 +331,74 @@ class SentryErrorHandlerMixin:
                     })
             
             sentry_sdk.capture_exception(exception)
+
+
+class ViewSetSentryMixin(SentryErrorHandlerMixin):
+    """
+    Mixin que envuelve automáticamente los métodos de ViewSet.
+    
+    Uso:
+        class ProductViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
+            # Automáticamente maneja errores en todos los métodos
+            pass
+    
+    IMPORTANTE: NO sobrescribas create/update/destroy, usa perform_create/perform_update/perform_destroy
+    """
+    
+    def handle_exception(self, exc):
+        """
+        Sobrescribe el manejador de excepciones de DRF.
+        Este método es llamado automáticamente cuando hay una excepción.
+        """
+        # Dejar que ValidationError de DRF se maneje normalmente
+        if isinstance(exc, ValidationError):
+            return super().handle_exception(exc)
+        
+        # Para otros errores, usar nuestro manejador con Sentry
+        tags = {
+            'view': self.__class__.__name__,
+            'method': self.request.method,
+            'action': getattr(self, 'action', 'unknown')
+        }
+        extra = {
+            'view_name': self.__class__.__name__,
+            'action': getattr(self, 'action', 'unknown')
+        }
+        
+        # Manejar según tipo de error
+        if isinstance(exc, IntegrityError):
+            return self._handle_integrity_error(exc, tags, extra)
+        elif isinstance(exc, DatabaseError):
+            return self._handle_database_error(exc, self.request, tags, extra)
+        elif isinstance(exc, SMTPException):
+            return self._handle_email_error(exc, self.request, tags, extra)
+        elif isinstance(exc, Timeout):
+            return self._handle_timeout_error(exc, self.request, tags, extra)
+        elif isinstance(exc, ConnectionError):
+            return self._handle_connection_error(exc, self.request, tags, extra)
+        elif isinstance(exc, RequestException):
+            return self._handle_request_error(exc, self.request, tags, extra)
+        else:
+            # Para otros errores, usar el manejador de DRF pero logear a Sentry
+            self._capture_to_sentry(
+                exc,
+                level="error",
+                tags={**tags, 'error_type': 'unexpected'},
+                extra=extra,
+                request=self.request
+            )
+            return super().handle_exception(exc)
+
+
+class OwnerCheckMixin:
+    """Mixin que agrega método para verificar ownership"""
+    
+    def is_own_profile(self):
+        """Verifica si está viendo su propio perfil"""
+        if not self.request.user.is_authenticated:
+            return False
+        
+        try:
+            return int(self.kwargs.get('pk')) == self.request.user.id
+        except (ValueError, TypeError, AttributeError):
+            return False
