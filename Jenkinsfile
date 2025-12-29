@@ -21,7 +21,7 @@ pipeline {
             }
 
             steps {
-                sshagent(credentials: ['api-dev-ssh']) {
+                sshagent(credentials: ['api-ssh']) {
                     sh """
                     ssh -o StrictHostKeyChecking=no ${SSH_USER}@${API_HOST} '
                         set -e
