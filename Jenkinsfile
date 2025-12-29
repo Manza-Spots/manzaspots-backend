@@ -42,13 +42,13 @@ pipeline {
                         cd ${APP_DIR}
 
                         echo "==> Parando contenedores"
-                        docker compose -f docker-compose.dev.yml down
+                        docker-compose -f docker-compose.dev.yml down
 
                         echo "==> Construyendo imagen"
-                        docker compose -f docker-compose.dev.yml build
+                        docker-compose -f docker-compose.dev.yml build
 
                         echo "==> Levantando API DEV"
-                        docker compose -f docker-compose.dev.yml up -d
+                        docker-compose -f docker-compose.dev.yml up -d
 
                         echo "==> Deploy DEV completado"
                     '
