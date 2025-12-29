@@ -21,10 +21,7 @@ warnings.filterwarnings(
 
 #------------------------------ CONFIGURACION DE SENTRY ----------------------------------------
 sentry_sdk.init(
-    # dsn=config('SDK_SENTRY'),
-    dsn='',
-    # Add data like request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    dsn=config('SDK_SENTRY', default=None),
     send_default_pii=True,
 )
 
@@ -188,8 +185,11 @@ REST_USE_JWT = True
 JWT_AUTH_COOKIE = 'access'
 JWT_AUTH_REFRESH_COOKIE = 'refresh'
 # ---------------------------------------------- CORS ----------------------------------------
-CORS_ALLOWED_ORIGINS = [
-]
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="",
+    cast=lambda v: [s.strip() for s in v.split(",") if s]
+)
 
 #---------------------------------------------- REST AUTH -----------------------------------------------------
 REST_AUTH = {
@@ -220,7 +220,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = 'xlrv ymdv neux oxwz'  
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
 # ---------------------------------------- LOGGING -------------------------------------------
@@ -379,8 +379,12 @@ SPECTACULAR_SETTINGS = {
 
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG')
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+DEBUG = config('DEBUG', cast=bool)
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=lambda v: [s.strip() for s in v.split(",")]
+)
 ROOT_URLCONF = 'manza_spots.urls'
 WSGI_APPLICATION = 'manza_spots.wsgi.application'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
