@@ -21,37 +21,39 @@ pipeline {
             }
 
             steps {
-                sh """
-                ssh -o StrictHostKeyChecking=no ${SSH_USER}@${API_HOST} '
-                    set -e
+                sshagent(credentials: ['api-dev-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ${SSH_USER}@${API_HOST} '
+                        set -e
 
-                    echo "==> Entrando a servidor API DEV"
+                        echo "==> Entrando a servidor API DEV"
 
-                    if [ ! -d ${APP_DIR}/.git ]; then
-                        echo "==> Clonando repositorio"
-                        git clone ${GIT_URL} ${APP_DIR}
-                    else
-                        echo "==> Actualizando repositorio"
+                        if [ ! -d ${APP_DIR}/.git ]; then
+                            echo "==> Clonando repositorio"
+                            git clone ${GIT_URL} ${APP_DIR}
+                        else
+                            echo "==> Actualizando repositorio"
+                            cd ${APP_DIR}
+                            git fetch origin
+                            git checkout develop
+                            git pull origin develop
+                        fi
+
                         cd ${APP_DIR}
-                        git fetch origin
-                        git checkout develop
-                        git pull origin develop
-                    fi
 
-                    cd ${APP_DIR}
+                        echo "==> Parando contenedores"
+                        docker compose -f docker-compose.dev.yml down
 
-                    echo "==> Parando contenedores"
-                    docker compose -f docker-compose.dev.yml down
+                        echo "==> Construyendo imagen"
+                        docker compose -f docker-compose.dev.yml build
 
-                    echo "==> Construyendo imagen"
-                    docker compose -f docker-compose.dev.yml build
+                        echo "==> Levantando API DEV"
+                        docker compose -f docker-compose.dev.yml up -d
 
-                    echo "==> Levantando API DEV"
-                    docker compose -f docker-compose.dev.yml up -d
-
-                    echo "==> Deploy DEV completado"
-                '
-                """
+                        echo "==> Deploy DEV completado"
+                    '
+                    """
+                }
             }
         }
     }
