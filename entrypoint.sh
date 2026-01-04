@@ -8,34 +8,47 @@ echo "========================================="
 # Función para esperar a que la base de datos esté disponible
 wait_for_db() {
     echo "==> Esperando a que la base de datos esté disponible..."
+    echo "==> Configuración de BD:"
+    echo "    DB_HOST: ${DB_HOST}"
+    echo "    DB_NAME: ${DB_NAME}"
+    echo "    DB_USER: ${DB_USER}"
+    echo "    DB_PORT: ${DB_PORT:-5432}"
     
     python << END
 import sys
 import time
 import psycopg2
-from decouple import config
+import os
 
-max_retries = 30
+max_retries = 60
 retry_count = 0
+
+db_config = {
+    'dbname': os.getenv('DB_NAME'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'host': os.getenv('DB_HOST'),
+    'port': os.getenv('DB_PORT', '5432')
+}
+
+print(f"Intentando conectar a: {db_config['host']}:{db_config['port']}/{db_config['dbname']}")
 
 while retry_count < max_retries:
     try:
-        conn = psycopg2.connect(
-            dbname=config('DB_NAME'),
-            user=config('DB_USER'),
-            password=config('DB_PASSWORD'),
-            host=config('DB_HOST'),
-            port=config('DB_PORT', default=5432)
-        )
+        conn = psycopg2.connect(**db_config)
         conn.close()
-        print("Base de datos disponible")
+        print("✓ Base de datos disponible")
         sys.exit(0)
     except psycopg2.OperationalError as e:
         retry_count += 1
-        print(f"Esperando base de datos... intento {retry_count}/{max_retries}")
-        time.sleep(2)
+        print(f"⏳ Error: {str(e)}")
+        print(f"   Intento {retry_count}/{max_retries}")
+        time.sleep(3)
+    except Exception as e:
+        print(f"✗ Error inesperado: {str(e)}")
+        sys.exit(1)
 
-print("No se pudo conectar a la base de datos después de", max_retries, "intentos")
+print("✗ No se pudo conectar a la base de datos después de", max_retries, "intentos")
 sys.exit(1)
 END
 }
@@ -46,9 +59,9 @@ run_migrations() {
     python manage.py migrate --noinput
     
     if [ $? -eq 0 ]; then
-        echo "Migraciones completadas exitosamente"
+        echo "✓ Migraciones completadas exitosamente"
     else
-        echo "Error al ejecutar migraciones"
+        echo "✗ Error al ejecutar migraciones"
         exit 1
     fi
 }
@@ -59,9 +72,9 @@ collect_static() {
     python manage.py collectstatic --noinput
     
     if [ $? -eq 0 ]; then
-        echo "Archivos estáticos recolectados"
+        echo "✓ Archivos estáticos recolectados"
     else
-        echo "Warning: Error al recolectar archivos estáticos (continuando...)"
+        echo "⚠ Warning: Error al recolectar archivos estáticos (continuando...)"
     fi
 }
 
