@@ -3,7 +3,8 @@ version: "3.9"
 services:
   web:
     build: .
-    command: gunicorn manza_spots.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn manza_spots.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    container_name: api-web-1
     ports:
       - "8000:8000"
     env_file:
@@ -11,3 +12,4 @@ services:
     environment:
       DEBUG: "False"
       ALLOWED_HOSTS: "*"
+    restart: unless-stopped
