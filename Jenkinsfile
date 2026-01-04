@@ -15,47 +15,6 @@ pipeline {
             }
         }
 
-        // stage("Deploy API DEV") {
-        //     when {
-        //         branch "develop"
-        //     }
-
-        //     steps {
-        //         sshagent(credentials: ['api-ssh']) {
-        //             sh """
-        //             ssh -o StrictHostKeyChecking=no ${SSH_USER}@${API_HOST} '
-        //                 set -e
-
-        //                 echo "==> Entrando a servidor API DEV"
-
-        //                 if [ ! -d ${APP_DIR}/.git ]; then
-        //                     echo "==> Clonando repositorio"
-        //                     git clone ${GIT_URL} ${APP_DIR}
-        //                 else
-        //                     echo "==> Actualizando repositorio"
-        //                     cd ${APP_DIR}
-        //                     git fetch origin
-        //                     git checkout develop
-        //                     git pull origin develop
-        //                 fi
-
-        //                 cd ${APP_DIR}
-
-        //                 echo "==> Parando contenedores"
-        //                 docker-compose -f docker-compose.dev.yml down
-
-        //                 echo "==> Construyendo imagen"
-        //                 docker-compose -f docker-compose.dev.yml build
-
-        //                 echo "==> Levantando API DEV"
-        //                 docker-compose -f docker-compose.dev.yml up -d
-
-        //                 echo "==> Deploy DEV completado"
-        //             '
-        //             """
-        //         }
-        //     }
-        // }
         stage("Deploy API DEV") {
             when {
                 branch "develop"
@@ -91,7 +50,7 @@ pipeline {
                                 
                                 echo "==> Levantando contenedores con versión anterior"
                                 cd ${APP_DIR}
-                                docker-compose -f docker-compose.dev.yml up -d
+                                docker compose -f docker-compose.dev.yml up -d
                                 
                                 echo "==> Rollback completado"
                             fi
@@ -107,7 +66,7 @@ pipeline {
                         echo "==> Parando contenedores actuales"
                         if [ -d ${APP_DIR} ]; then
                             cd ${APP_DIR}
-                            docker-compose -f docker-compose.dev.yml down || true
+                            docker compose -f docker-compose.dev.yml down || true
                         fi
 
                         echo "==> Copiando nuevos archivos"
@@ -121,14 +80,14 @@ pipeline {
                         cd ${APP_DIR}
 
                         echo "==> Construyendo imagen"
-                        docker-compose -f docker-compose.dev.yml build
+                        docker compose -f docker-compose.dev.yml build
 
                         echo "==> Levantando API DEV"
-                        docker-compose -f docker-compose.dev.yml up -d
+                        docker compose -f docker-compose.dev.yml up -d
 
                         echo "==> Verificando que los contenedores están corriendo"
                         sleep 5
-                        if ! docker-compose -f docker-compose.dev.yml ps | grep -q "Up"; then
+                        if ! docker compose -f docker-compose.dev.yml ps | grep -q "Up"; then
                             echo "==> ERROR: Los contenedores no están corriendo"
                             exit 1
                         fi
