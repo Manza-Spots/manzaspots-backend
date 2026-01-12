@@ -14,13 +14,14 @@ from drf_spectacular.utils import (
 )
 from authentication.views import User
 from core.mixins import ViewSetSentryMixin
-from core.permission import IsOwnerOrReadOnly
+from core.permission import IsOwnerOrAdmin, IsOwnerOrReadOnly
 from spots_routes.filters import RouteFilter, RoutePhotoFilter
 from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
 from spots_routes.serializer import (
     SpotCaptionCreateSerializer, 
     SpotCaptionSerializer, 
-    SpotSerializer, 
+    SpotSerializer,
+    SpotUpdateSerializer, 
     UserFavoriteSpotSerializer,
     RouteSerializer, 
     RoutePhotoSerializer, 
@@ -108,11 +109,15 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     serializer_class = SpotSerializer
     permission_classes = [IsAuthenticated]
     
-    def get_permissions(self):
-        if self.action == 'list':
-            return []  
-
-        return [permission() for permission in self.permission_classes]
+    def get_permissions(self): 
+            """Permisos dinámicos según la acción"""
+            if self.action == 'list':
+                return [] 
+            
+            if self.action in ['update', 'partial_update', 'destroy']: 
+                return [IsAuthenticated(), IsOwnerOrAdmin()] 
+                       
+            return [permission() for permission in self.permission_classes]
     
     def get_queryset(self):
         user = self.request.user
@@ -134,7 +139,19 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             if name:
                 queryset = queryset.filter(name__icontains=name)
         
+        elif self.action == "retrieve":
+            if not user.is_staff:
+                queryset = queryset.filter(
+                    is_active=True,
+                    status__key='APPROVED'
+                )  
+        
         return queryset
+    
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return SpotUpdateSerializer
+        return SpotSerializer
     
     def perform_create(self, serializer):
         """Asignar usuario y estado inicial al crear"""
@@ -142,27 +159,11 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
             user=self.request.user,
             status_id=models.get_default_pending()
         )
-    
-    def update(self, request, *args, **kwargs):
-        """Permitir edición solo al propietario o admin"""
-        spot = self.get_object()
-        
-        # Validar permisos
-        if not request.user.is_staff and spot.user != request.user:
-            return Response(
-                {'error': 'No tienes permiso para editar este spot'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        return super().update(request, *args, **kwargs)
-    
-    def partial_update(self, request, *args, **kwargs):
-        """Mismo control para PATCH"""
-        return self.update(request, *args, **kwargs)
-    
+
     @extend_schema(
         summary="Autorizar spot",
         tags=["spots"],
+        request= None,
         description=(
             "Autoriza un spot cambiando su estado a APPROVED. \n\n"
             "Solo accesible para administradores. \n\n"
@@ -243,7 +244,6 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         tags=["spots"],
         description=(
             "Obtiene todos los spots creados por el usuario autenticado, \n\n "
-            "en cualquier estado (pendiente, aprobado o rechazado). \n\n"
             f"**Code:** `{_MODULE_PATH}.SpotViewSet_my_spots`"                                    
         ),
         responses={
@@ -264,6 +264,7 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     @extend_schema(
         summary="Agregar a favoritos",
         tags=["spots", "spots-favorite"],
+        request= None,
         description=(
             "Agrega un spot a la lista de favoritos del usuario. \n\n"
             "Si el spot ya está en favoritos pero inactivo, lo reactiva.\n\n"
@@ -307,6 +308,7 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     @extend_schema(
         summary="Remover de favoritos",
         tags=["spots", "spots-favorite"],
+        request= None,
         description=(
             "Remueve un spot de la lista de favoritos del usuario (soft delete). \n\n"
             "El spot no se elimina, solo se marca como inactivo en favoritos.\n\n"
@@ -361,7 +363,8 @@ class UserFavoriteSpotsView(generics.ListAPIView):
         return UserFavoriteSpot.objects.filter(
             user=self.request.user,
             is_active=True,
-            spot__deleted_at__isnull=True
+            spot__is_active =True,
+            spot__status__key = "APPROVED"
         ).select_related('spot')
 
 
