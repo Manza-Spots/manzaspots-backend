@@ -27,3 +27,15 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
             return False
 
         return owner == request.user
+
+
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """
+    Permiso personalizado: solo el propietario o admin puede editar
+    """
+    def has_object_permission(self, request, view, obj):
+        # Los admins pueden todo
+        if request.user.is_staff:
+            return True
+        # El propietario puede editar su propio spot
+        return obj.user == request.user

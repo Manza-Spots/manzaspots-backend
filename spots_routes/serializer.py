@@ -4,6 +4,8 @@ from rest_framework_gis.fields import GeometryField
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
+#=================================== SPOTS =========================================================
+
 class SpotCaptionSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
 
@@ -31,7 +33,7 @@ class SpotCaptionCreateSerializer(serializers.ModelSerializer):
         return value
     
 class SpotSerializer(serializers.ModelSerializer):
-    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='photos')  
+    spot_caption = SpotCaptionSerializer(many=True, read_only=True, source='captions')  
     is_favorite = serializers.SerializerMethodField()
     user_name = serializers.CharField(source='user.username', read_only=True)
     status_name = serializers.CharField(source='status.name', read_only=True)
@@ -82,18 +84,23 @@ class SpotSerializer(serializers.ModelSerializer):
             
             # Campos que solo admins pueden ver
             admin_fields = {
-                'status_name',  # ✅ Agregado aquí también
+                'status_name',  
                 'reject_reason', 
                 'reviewed_user', 
                 'reviewed_at', 
-                'deleted_at'
+                'deleted_at',
+                'is_active',
             }
             
             if not user.is_staff:
-                # Remover campos de admin
                 for field in admin_fields:
                     self.fields.pop(field, None)
 
+class SpotUpdateSerializer(serializers.ModelSerializer):
+    class Meta: 
+        model = Spot
+        fields = [ 'name', 'description', 'spot_thumbnail_path', 'location',]
+        
 class UserFavoriteSpotSerializer(serializers.ModelSerializer):
     spot = SpotSerializer(read_only=True)
     
@@ -102,7 +109,7 @@ class UserFavoriteSpotSerializer(serializers.ModelSerializer):
         fields = ['id', 'spot', 'created_at', 'is_active']
 
 
-#=================================== SPOTS =========================================================
+#=================================== ROUTES =========================================================
         
 class RoutePhotoSerializer(serializers.ModelSerializer):
     location = GeometryField() 
