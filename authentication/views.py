@@ -26,6 +26,7 @@ from drf_spectacular.utils import extend_schema, OpenApiExample
 from rest_framework_simplejwt.views import (
     TokenRefreshView,TokenVerifyView, TokenObtainPairView,TokenBlacklistView
 )
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 
 User = get_user_model()
 _MODULE_PATH = __name__

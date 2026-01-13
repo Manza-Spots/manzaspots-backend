@@ -4,7 +4,7 @@ from django.contrib.gis.db import models as gis_models
 from django.core.validators import FileExtensionValidator
 from django.utils.html import format_html
 from authentication.views import User
-from manza_spots.utils import route_photo_path, spot_photo_path, spot_thumbnail_path
+from core.utils.upload_image import route_photo_path, spot_photo_path, spot_thumbnail_path
 from django.contrib.gis.geos import GEOSGeometry
 
 #----------------------------------- SPOTS --------------------------------------------
