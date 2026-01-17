@@ -20,7 +20,7 @@ warnings.filterwarnings(
 )
 
 #------------------------------ CONFIGURACION DE SENTRY ----------------------------------------
-if not config('DEBUG'):
+if not config('DEBUG', default=True, cast=bool):
     sentry_sdk.init(
         dsn=config('SDK_SENTRY', default=None),
         send_default_pii=True,
@@ -365,6 +365,26 @@ if os.name == 'nt':
     
     
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
+if config('ACTIVE_RATES', default=False, cast=bool):
+    DEFAULT_THROTTLE_CLASSES = (
+            'rest_framework.throttling.AnonRateThrottle',
+            'rest_framework.throttling.UserRateThrottle',
+            'manza_spots.throttling.BurstRateThrottle',
+    )
+    DEFAULT_THROTTLE_RATES = {
+            'anon': '35/hour',
+            'user': '500/hour',
+            'login': '5/hour',
+            'register': '3/hour',
+            'sensitive': '5/hour',
+            'heavy': '20/hour',
+            'burst': '30/min',
+    }
+else:
+    DEFAULT_THROTTLE_CLASSES = []
+    DEFAULT_THROTTLE_RATES = {}
+
+
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
@@ -375,29 +395,17 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    
-    'DEFAULT_THROTTLE_CLASSES': (
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',  
-        'manza_spots.throttling.BurstRateThrottle'
-    ),
 
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '35/hour',
-        'user': '500/hour',
-        'login': '5/hour',
-        'register': '3/hour',
-        
-        'sensitive': '5/hour',
-        'heavy' : '20/hour',
-        'burst' : '30/min'
-    },
-    
+    'DEFAULT_THROTTLE_CLASSES': DEFAULT_THROTTLE_CLASSES,
+    'DEFAULT_THROTTLE_RATES': DEFAULT_THROTTLE_RATES,
+
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+
     'DEFAULT_RENDERER_CLASSES': [
         'manza_spots.renderers.StandardJSONRenderer',
     ],
+
     'EXCEPTION_HANDLER': 'core.utils.exceptions.custom_exception_handler',
 }
 
