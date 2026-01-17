@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth.models import User
 from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
 from core.permission import IsOwnerOrReadOnly
+from manza_spots.throttling import RegisterThrottle
 from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
 from .serializers import (UserAdminSerializer, UserCreateSerializer, UserPrivateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserPublicSerializer, 
@@ -145,6 +146,11 @@ class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated]
         
         return [permission() for permission in permission_classes]
+   
+    def get_throttles(self):
+        if self.action == 'create':
+            return [RegisterThrottle()]
+        return super().get_throttles()
     
     def perform_destroy(self, instance):
         """Desactiva el usuario en lugar de eliminarlo"""

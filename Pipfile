@@ -27,6 +27,7 @@ drf-nested-routers = "*"
 drf-spectacular = "*"
 django-filter = "*"
 djangorestframework-gis = "*"
+django-redis = "*"
 
 [dev-packages]
 

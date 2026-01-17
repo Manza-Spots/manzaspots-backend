@@ -53,7 +53,6 @@ def upload_image_path(base_folder, instance, filename, use_spot=False, use_route
     
     return os.path.join(*path_parts)
 
-
 # Funciones wrapper específicas para cada tipo
 def spot_photo_path(instance, filename):
     """
@@ -105,3 +104,4 @@ def user_thumbnail_path(instance, filename):
         return f'user_thumbnails/{unique_id}.{ext}'
     
     return f'user_thumbnails/user_{instance.pk}.{ext}'
+

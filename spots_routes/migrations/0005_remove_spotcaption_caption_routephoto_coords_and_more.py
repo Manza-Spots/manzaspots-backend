@@ -2,7 +2,7 @@
 
 import django.contrib.gis.db.models.fields
 import django.core.validators
-import manza_spots.utils
+import core.utils.upload_image
 from django.db import migrations, models
 
 
@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='spotcaption',
             name='img_path',
-            field=models.ImageField(default='123.jpg', help_text='Formatos: JPG, PNG, WEBP', upload_to=manza_spots.utils.spot_photo_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
+            field=models.ImageField(default='123.jpg', help_text='Formatos: JPG, PNG, WEBP', upload_to=core.utils.upload_image.spot_photo_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
             preserve_default=False,
         ),
         migrations.AlterField(
@@ -36,11 +36,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='routephoto',
             name='img_path',
-            field=models.ImageField(help_text='Formatos: JPG, PNG, WEBP', upload_to=manza_spots.utils.route_photo_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
+            field=models.ImageField(help_text='Formatos: JPG, PNG, WEBP', upload_to=core.utils.upload_image.route_photo_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
         ),
         migrations.AlterField(
             model_name='spot',
             name='spot_thumbnail_path',
-            field=models.ImageField(help_text='Formatos: JPG, PNG, WEBP', upload_to=manza_spots.utils.spot_thumbnail_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
+            field=models.ImageField(help_text='Formatos: JPG, PNG, WEBP', upload_to=core.utils.upload_image.spot_thumbnail_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])]),
         ),
     ]

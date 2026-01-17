@@ -13,7 +13,7 @@ from drf_spectacular.utils import (
     OpenApiResponse,
 )
 from authentication.views import User
-from core.mixins import ViewSetSentryMixin
+from core.mixins import  ViewSetSentryMixin
 from core.permission import IsOwnerOrAdmin, IsOwnerOrReadOnly
 from spots_routes.filters import RouteFilter, RoutePhotoFilter
 from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
@@ -105,7 +105,7 @@ _MODULE_PATH = __name__
         )
     )
 )
-class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
+class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
     serializer_class = SpotSerializer
     permission_classes = [IsAuthenticated]
     

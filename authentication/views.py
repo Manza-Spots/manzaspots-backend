@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from authentication.docs.auth import CONFIRM_NEW_PASSWORD_RESPONSE, GOOGLE_LOGIN_REQUEST, LOGIN_RESPONSE, REQUEST_NEW_PASSWORD_RESPONSE
 from core.mixins import SentryErrorHandlerMixin
+from manza_spots.throttling import LoginThrottle, SensitiveOperationThrottle
 from .serializers import PasswordResetRequestSerializer, SetNewPasswordSerializer
 from .services import PasswordResetService
 import sentry_sdk
@@ -26,6 +27,7 @@ from drf_spectacular.utils import extend_schema, OpenApiExample
 from rest_framework_simplejwt.views import (
     TokenRefreshView,TokenVerifyView, TokenObtainPairView,TokenBlacklistView
 )
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 
 User = get_user_model()
 _MODULE_PATH = __name__
@@ -46,6 +48,11 @@ class PasswordResetRequestView(SentryErrorHandlerMixin, generics.GenericAPIView)
         ),
         responses=REQUEST_NEW_PASSWORD_RESPONSE
     )
+    
+    def get_throttles(self):
+        if self.action == 'create':
+            return [SensitiveOperationThrottle()]
+        return super().get_throttles()
     
     def post(self, request):
         return self.handle_with_sentry(
@@ -77,13 +84,17 @@ class PasswordResetConfirmView(SentryErrorHandlerMixin, generics.GenericAPIView)
             summary="Confirmas Nueva Contraseña",
             tags=["auth"],
             description=(
-                "Actualiza la contraseña del usuario utilizando el token de restablecimiento y el identificador \n\n"
+                "Actualiza la contraseña del usuario utilizando el token de restablecimiento y el identificador"
                 "de usuario previamente enviados en la solicitud de recuperación de contraseña. \n\n  "
                 f"**Code:** `{_MODULE_PATH}.PasswordResetConfirmView`"
             ),
             responses=CONFIRM_NEW_PASSWORD_RESPONSE,
        )
     
+    def get_throttles(self):
+        if self.action == 'create':
+            return [SensitiveOperationThrottle()]
+        return super().get_throttles()
     
     def post(self, request):
         return self.handle_with_sentry(
@@ -129,6 +140,11 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
     sentry_operation_name = "google_authentication"
 
+    def get_throttles(self):
+        if self.action == 'create':
+            return [SensitiveOperationThrottle()]
+        return super().get_throttles()
+    
     def post(self, request, *args, **kwargs):
         return self.handle_with_sentry(
             operation=self._google_login,
@@ -230,6 +246,7 @@ class DocumentedTokenVerifyView(TokenVerifyView):
         responses = LOGIN_RESPONSE
     )
 class DocumentedTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [LoginThrottle]
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
     
