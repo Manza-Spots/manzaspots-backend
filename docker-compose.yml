@@ -15,9 +15,22 @@ services:
       timeout: 5s
       retries: 5
 
+ 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000  # 
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app  
     ports:
@@ -30,10 +43,15 @@ services:
       DB_PASSWORD: admin123
       DB_HOST: db
       DB_PORT: 5432
+     
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ALLOWED_HOSTS: "*" 
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy 
 
   pgadmin:
     image: dpage/pgadmin4
@@ -50,3 +68,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  redis_data: 

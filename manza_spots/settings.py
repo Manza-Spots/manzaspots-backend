@@ -20,10 +20,11 @@ warnings.filterwarnings(
 )
 
 #------------------------------ CONFIGURACION DE SENTRY ----------------------------------------
-sentry_sdk.init(
-    dsn=config('SDK_SENTRY', default=None),
-    send_default_pii=True,
-)
+if not config('DEBUG'):
+    sentry_sdk.init(
+        dsn=config('SDK_SENTRY', default=None),
+        send_default_pii=True,
+    )
 
 
 #----------------------------- CARPETAS RELEVANTES ----------------------------------------------
@@ -68,7 +69,8 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    
+    'allauth.socialaccount.providers.facebook',
+
      # GeoDjango
     'django.contrib.gis',
     
@@ -313,7 +315,38 @@ SOCIALACCOUNT_PROVIDERS = {
         },
         'APP': {
             'client_id': config('ID_GOOGLE_CLIENT'),
-            'secret': config('SECRET_CLIENT'),
+            'secret': config('SECRET_GOOGLE_CLIENT'),
+            'key': ''
+        }
+    },
+    'facebook': {
+        'METHOD': 'oauth2',
+        'SCOPE': [
+            'email',
+            'public_profile'
+        ],
+        'AUTH_PARAMS': {
+            'auth_type': 'reauthenticate'
+        },
+        'FIELDS': [
+            'id',
+            'email',
+            'name',
+            'first_name',
+            'last_name',
+            'verified',
+            'locale',
+            'timezone',
+            'link',
+            'gender',
+            'updated_time',
+        ],
+        'EXCHANGE_TOKEN': True,
+        'VERIFIED_EMAIL': False,
+        'VERSION': 'v13.0',
+        'APP': {
+            'client_id': config('ID_FACEBOOK_CLIENT'),
+            'secret': config('SECRET_FACEBOOK_CLIENT'),
             'key': ''
         }
     }
@@ -333,20 +366,39 @@ if os.name == 'nt':
     
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
 REST_FRAMEWORK = {
-    # 'EXCEPTION_HANDLER': 'manza_spots.utils.exception_handlers.Documented_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',  
+        'manza_spots.throttling.BurstRateThrottle'
+    ),
+
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '35/hour',
+        'user': '500/hour',
+        'login': '5/hour',
+        'register': '3/hour',
+        
+        'sensitive': '5/hour',
+        'heavy' : '20/hour',
+        'burst' : '30/min'
+    },
+    
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_RENDERER_CLASSES': [
         'manza_spots.renderers.StandardJSONRenderer',
     ],
-
+    'EXCEPTION_HANDLER': 'core.utils.exceptions.custom_exception_handler',
 }
 
 #-------------------------------------------- SPECTACULAR SETTINGS  ------------------------------------------------
@@ -376,6 +428,18 @@ SPECTACULAR_SETTINGS = {
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
 }
 
+
+#------------------------------ CACHE -------------------------------------------------------------
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f'redis://{os.getenv("REDIS_HOST", "localhost")}:{os.getenv("REDIS_PORT", "6379")}/1',
+        'OPTIONS': {
+            'socket_connect_timeout': 5,
+            'socket_timeout': 5,
+        }
+    }
+}
 
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
