@@ -1,6 +1,7 @@
 # views.py - Solo maneja HTTP
 import logging
 import re
+import unicodedata
 from urllib import request
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -176,29 +177,40 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
         return response
     
 class CustomFacebookOAuth2Adapter(FacebookOAuth2Adapter):
-    """Adaptador personalizado para usar el nombre como username"""
+    """Adaptador profesional con generación de username único garantizado"""
     
     def complete_login(self, request, app, token, **kwargs):
         login = super().complete_login(request, app, token, **kwargs)
         
         extra_data = login.account.extra_data
+        User = get_user_model()
         
-        username = self._generate_username_from_name(extra_data, login.user)
-        
-        if login.user and username:
+        # Solo generar username si el usuario es nuevo o no tiene username válido
+        if login.user and (not login.user.pk or not login.user.username or login.user.username.strip() == ''):
+            username = self._generate_unique_username(extra_data, User)
             login.user.username = username
         
         return login
     
-    def _generate_username_from_name(self, data, user):
+    def _generate_unique_username(self, data, User):
         """
-        Genera username desde el nombre de Facebook.
-        Prioridad:
-        1. Campo 'name' completo (ej: "Juan Pérez" → "juan_perez")
-        2. first_name + last_name (ej: "Juan" + "Pérez" → "juan_perez")
-        3. Email base
-        4. Facebook ID
+        Genera un username único garantizado.
         """
+        base_username = self._get_base_username_from_name(data)
+        
+        if not base_username:
+            email = data.get('email', '')
+            if email and '@' in email:
+                base_username = email.split('@')[0]
+                base_username = self._sanitize_username(base_username)
+        
+        if not base_username:
+            return f"fb{data.get('id', 'user')}"
+        
+        return self._ensure_unique_username(base_username, User)
+    
+    def _get_base_username_from_name(self, data):
+        """Extrae y sanitiza el nombre para usar como base del username"""
         name = data.get('name', '').strip()
         if name:
             username = self._sanitize_username(name)
@@ -208,34 +220,60 @@ class CustomFacebookOAuth2Adapter(FacebookOAuth2Adapter):
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         if first_name or last_name:
-            full_name = f"{first_name} {last_name}".strip()
+            full_name = f"{first_name}{last_name}".strip()
             username = self._sanitize_username(full_name)
             if username:
                 return username
         
-        email = data.get('email', '')
-        if email:
-            return email.split('@')[0]
-        
-        return f"fb_{data.get('id', 'user')}"
+        return None
     
     def _sanitize_username(self, name):
-        username = name.lower()
+        """
+        Sanitiza el nombre para convertirlo en username válido:
+        - Normaliza Unicode (á→a, ñ→n)
+        - Solo letras y números
+        - Minúsculas
+        - Máximo 30 caracteres (dejamos espacio para sufijos)
+        """
+        username = unicodedata.normalize('NFKD', name)
+        username = username.encode('ascii', 'ignore').decode('ascii')
         
-        username = username.replace(' ', '_')
+        username = username.lower()
+        username = re.sub(r'[^a-z0-9]', '', username)
         
-        username = re.sub(r'[^a-z0-9_]', '', username)
-        
-        username = username[:150]
+        username = username[:30]
         
         return username if username else None
-
+    
+    def _ensure_unique_username(self, base_username, User):
+        """
+        Garantiza que el username sea único agregando sufijo numérico.
+        """
+        username = base_username
+        
+        if not User.objects.filter(username=username).exists():
+            return username
+        
+        counter = 1
+        max_attempts = 9999  
+        
+        while counter < max_attempts:
+            username = f"{base_username}{counter}"
+            
+            if not User.objects.filter(username=username).exists():
+                return username
+            
+            counter += 1
+        
+        import time
+        return f"{base_username}{int(time.time())}"
 @extend_schema(
     summary="Autenticación con Facebook",
     tags=["auth"],
     description=(
         "Autentica o registra usuarios mediante Facebook como proveedor externo, validando un token emitido por Facebook y retornando "
         "los tokens de acceso de la aplicación\n\n"
+        "En caso de no contar con el SDK de Facebook en el frontend para realizar pruebas, acceder a Facebook Developer -> Herramientas -> Explorador de la API Graph.\n\n"        
         f"**Code:** `{_MODULE_PATH}.FacebookLogin`"
     ),
     request=FACEBOOK_LOGIN_REQUEST,
