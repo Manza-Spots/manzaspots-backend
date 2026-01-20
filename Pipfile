@@ -16,7 +16,6 @@ sentry-sdk = {extras = ["django"], version = "*"}
 python-decouple = "*"
 requests = "*"
 rich = "*"
-django-allauth = "*"
 google-auth = "*"
 dj-rest-auth = {extras = ["with_social"], version = "*"}
 psycopg = "*"
@@ -28,6 +27,7 @@ drf-spectacular = "*"
 django-filter = "*"
 djangorestframework-gis = "*"
 django-redis = "*"
+django-allauth = "*"
 
 [dev-packages]
 

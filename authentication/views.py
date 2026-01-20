@@ -1,10 +1,11 @@
 # views.py - Solo maneja HTTP
 import logging
+import re
 from urllib import request
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from authentication.docs.auth import CONFIRM_NEW_PASSWORD_RESPONSE, GOOGLE_LOGIN_REQUEST, LOGIN_RESPONSE, REQUEST_NEW_PASSWORD_RESPONSE
+from authentication.docs.auth import CONFIRM_NEW_PASSWORD_RESPONSE, FACEBOOK_LOGIN_REQUEST, GOOGLE_LOGIN_REQUEST, LOGIN_RESPONSE, REQUEST_NEW_PASSWORD_RESPONSE
 from core.mixins import SentryErrorHandlerMixin
 from manza_spots.throttling import LoginThrottle, SensitiveOperationThrottle
 from .serializers import PasswordResetRequestSerializer, SetNewPasswordSerializer
@@ -141,7 +142,7 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
     sentry_operation_name = "google_authentication"
 
     def get_throttles(self):
-        if self.action == 'create':
+        if self.request.method == 'POST':
             return [SensitiveOperationThrottle()]
         return super().get_throttles()
     
@@ -174,9 +175,111 @@ class GoogleLogin(SentryErrorHandlerMixin, SocialLoginView):
         
         return response
     
+class CustomFacebookOAuth2Adapter(FacebookOAuth2Adapter):
+    """Adaptador personalizado para usar el nombre como username"""
     
-#=============== DOCUMENTACION PARA TOKENS NADA MAS =====================
+    def complete_login(self, request, app, token, **kwargs):
+        login = super().complete_login(request, app, token, **kwargs)
+        
+        extra_data = login.account.extra_data
+        
+        username = self._generate_username_from_name(extra_data, login.user)
+        
+        if login.user and username:
+            login.user.username = username
+        
+        return login
+    
+    def _generate_username_from_name(self, data, user):
+        """
+        Genera username desde el nombre de Facebook.
+        Prioridad:
+        1. Campo 'name' completo (ej: "Juan Pérez" → "juan_perez")
+        2. first_name + last_name (ej: "Juan" + "Pérez" → "juan_perez")
+        3. Email base
+        4. Facebook ID
+        """
+        name = data.get('name', '').strip()
+        if name:
+            username = self._sanitize_username(name)
+            if username:
+                return username
+        
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        if first_name or last_name:
+            full_name = f"{first_name} {last_name}".strip()
+            username = self._sanitize_username(full_name)
+            if username:
+                return username
+        
+        email = data.get('email', '')
+        if email:
+            return email.split('@')[0]
+        
+        return f"fb_{data.get('id', 'user')}"
+    
+    def _sanitize_username(self, name):
+        username = name.lower()
+        
+        username = username.replace(' ', '_')
+        
+        username = re.sub(r'[^a-z0-9_]', '', username)
+        
+        username = username[:150]
+        
+        return username if username else None
 
+@extend_schema(
+    summary="Autenticación con Facebook",
+    tags=["auth"],
+    description=(
+        "Autentica o registra usuarios mediante Facebook como proveedor externo, validando un token emitido por Facebook y retornando "
+        "los tokens de acceso de la aplicación\n\n"
+        f"**Code:** `{_MODULE_PATH}.FacebookLogin`"
+    ),
+    request=FACEBOOK_LOGIN_REQUEST,
+    responses=LOGIN_RESPONSE,
+)
+class FacebookLogin(SocialLoginView):
+    """Login de Facebook con username basado en nombre"""
+    adapter_class = CustomFacebookOAuth2Adapter
+    client_class = OAuth2Client
+    
+    def post(self, request, *args, **kwargs):
+        print("=" * 60)
+        print("🔵 FACEBOOK LOGIN - DEBUG")
+        print(f"Token: {request.data.get('access_token', 'NO TOKEN')[:40]}...")
+        
+        try:
+            response = super().post(request, *args, **kwargs)
+            
+            print(f"✅ Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                user = self.user if hasattr(self, 'user') else request.user
+                
+                print(f"👤 Usuario autenticado:")
+                print(f"   - Username: {user.username}")
+                print(f"   - Email: {user.email}")
+                print(f"   - Nombre: {user.first_name} {user.last_name}")
+                
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }, status=status.HTTP_200_OK)
+            
+            return response
+            
+        except Exception as e:
+            print(f"❌ ERROR: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+#=============== DOCUMENTACION PARA TOKENS NADA MAS =====================
 @extend_schema(
     summary="Renovar access token",
     description=(

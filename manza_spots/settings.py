@@ -319,8 +319,8 @@ SOCIALACCOUNT_PROVIDERS = {
             'key': ''
         }
     },
+    
     'facebook': {
-        'METHOD': 'oauth2',
         'SCOPE': [
             'email',
             'public_profile'
@@ -328,25 +328,9 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'auth_type': 'reauthenticate'
         },
-        'FIELDS': [
-            'id',
-            'email',
-            'name',
-            'first_name',
-            'last_name',
-            'verified',
-            'locale',
-            'timezone',
-            'link',
-            'gender',
-            'updated_time',
-        ],
-        'EXCHANGE_TOKEN': True,
-        'VERIFIED_EMAIL': False,
-        'VERSION': 'v13.0',
         'APP': {
-            'client_id': config('ID_FACEBOOK_CLIENT'),
-            'secret': config('SECRET_FACEBOOK_CLIENT'),
+            'client_id': config('FACEBOOK_APP_ID'),
+            'secret': config('FACEBOOK_APP_SECRET'),
             'key': ''
         }
     }
@@ -381,8 +365,20 @@ if config('ACTIVE_RATES', default=False, cast=bool):
             'burst': '30/min',
     }
 else:
-    DEFAULT_THROTTLE_CLASSES = []
-    DEFAULT_THROTTLE_RATES = {}
+    DEFAULT_THROTTLE_CLASSES = (
+            'rest_framework.throttling.AnonRateThrottle',
+            'rest_framework.throttling.UserRateThrottle',
+            'manza_spots.throttling.BurstRateThrottle',
+    )
+    DEFAULT_THROTTLE_RATES = {
+            'anon': '9935/hour',
+            'user': '99500/hour',
+            'login': '995/hour',
+            'register': '993/hour',
+            'sensitive': '995/hour',
+            'heavy': '9920/hour',
+            'burst': '9930/min',
+    }
 
 
 REST_FRAMEWORK = {

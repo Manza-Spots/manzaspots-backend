@@ -15,6 +15,20 @@ GOOGLE_LOGIN_REQUEST = {
     }
 }
 
+FACEBOOK_LOGIN_REQUEST = {
+    "application/json": {
+        "type": "object",
+        "properties": {
+            "access_token": {
+                "type": "string",
+                "description": "Token emitido por facebook"
+            }
+        },
+        "required": ["access_token"]
+    }
+}
+
+
 LOGIN_RESPONSE = {
     200: {
         "type": "object",

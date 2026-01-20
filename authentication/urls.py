@@ -1,7 +1,7 @@
 from django.urls import include, path
 import rest_framework_simplejwt.views as jwt_views
 
-from authentication.views import DocumentedTokenBlacklistView, DocumentedTokenObtainPairView, DocumentedTokenRefreshView, DocumentedTokenVerifyView, GoogleLogin, PasswordResetConfirmView, PasswordResetRequestView
+from authentication.views import DocumentedTokenBlacklistView, DocumentedTokenObtainPairView, DocumentedTokenRefreshView, DocumentedTokenVerifyView, FacebookLogin, GoogleLogin, PasswordResetConfirmView, PasswordResetRequestView
 
 authentications_patterns = ([
     # url tokens
@@ -18,6 +18,7 @@ authentications_patterns = ([
     # path('accounts/', include('allauth.urls')),  
     # path('registration/', include('dj_rest_auth.registration.urls')),    
     path('google/', GoogleLogin.as_view(), name='google_login'),
+    path('facebook/', FacebookLogin.as_view(), name='facebook_login'),
     
     path("token/refresh/", DocumentedTokenRefreshView.as_view()),
     path("token/verify/", DocumentedTokenVerifyView.as_view()),
