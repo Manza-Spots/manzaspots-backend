@@ -9,6 +9,7 @@ from datetime import timedelta
 import warnings
 import logging.config
 from django.conf import settings
+DEBUG = config('DEBUG', cast=bool)
 
 warnings.filterwarnings(
     "ignore",
@@ -445,9 +446,26 @@ CACHES = {
     }
 }
 
+
+db_config = DATABASES['default']
+SCHEDULER_CONFIG = {
+    'apscheduler.jobstores.default': {
+        'type': 'sqlalchemy',
+        'url': f"postgresql://{db_config['USER']}:{db_config['PASSWORD']}@{db_config['HOST']}:{db_config['PORT']}/{db_config['NAME']}"
+    },
+    'apscheduler.executors.default': {
+        'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+        'max_workers': '3'
+    },
+    'apscheduler.job_defaults.coalesce': 'true',
+    'apscheduler.job_defaults.max_instances': '1',
+    'apscheduler.timezone': 'America/Mexico_City',
+}
+
+UNVERIFIED_USER_EXPIRATION_DAYS = 7
+
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', cast=bool)
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS",
     default="localhost,127.0.0.1",

@@ -10,7 +10,6 @@ djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 django-cors-headers = "*"
 django-rest-passwordreset = "*"
-psycopg2-binary = "*"
 colorama = "*"
 sentry-sdk = {extras = ["django"], version = "*"}
 python-decouple = "*"
@@ -28,6 +27,9 @@ django-filter = "*"
 djangorestframework-gis = "*"
 django-redis = "*"
 django-allauth = "*"
+apscheduler = "*"
+psycopg2-binary = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 
