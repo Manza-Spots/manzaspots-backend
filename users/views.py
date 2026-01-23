@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
 from core.permission import IsOwnerOrReadOnly
 from manza_spots.throttling import RegisterThrottle
+from spots_routes.utils import RESEND_CONFIRMATION_EMAIL_REQUEST
 from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
 from .serializers import (UserAdminSerializer, UserCreateSerializer, UserPrivateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserPublicSerializer, 
@@ -142,13 +143,16 @@ class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
         elif self.action == 'destroy':
             permission_classes = [IsAdminUser]
         
+        elif self.action == 'resend_verification_email': 
+            permission_classes = [AllowAny]
+        
         else:
             permission_classes = [IsAuthenticated]
         
         return [permission() for permission in permission_classes]
    
     def get_throttles(self):
-        if self.action == 'create':
+        if self.action in ['create', 'resend_verification_email']:
             return [RegisterThrottle()]
         return super().get_throttles()
     
@@ -309,6 +313,63 @@ class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data) 
 
+    @extend_schema(
+        summary="Reenviar correo de verificacion",
+        tags=["users"],
+        description=(
+            "Se envia al usuario un la opcion de verificar su cuenta (activarla) por correo.\n\n"
+            "Pensado para ser utilizado en casos donde al usuario no le llego este correo al crear su cuenta\n\n"
+            f"**Code:** `{_MODULE_PATH}.UserViewSet_me`"
+        ),
+        responses={
+            201: OpenApiResponse(description="Usuario creado. Revisa tu correo para verificar la cuenta."),
+            400: OpenApiResponse(description="Datos inválidos")
+        },
+        request=RESEND_CONFIRMATION_EMAIL_REQUEST,
+        
+    )
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def resend_verification_email(self, request):
+            email = request.data.get('email')
+
+            if not email:
+                return Response(
+                    {"error": "Email is required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "si el correo existe, te llegara una notificacion para verificar tu cuenta"}, 
+                    status=status.HTTP_200_OK
+                )
+            
+            if user.is_active == True:  
+                return Response(
+                    {"error": "La cuenta ya fue verificada"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            token = UsersService.generate_email_token(user)
+            
+            verify_url = f"/users/verify-email?token={token}"
+            confirm_url = request.build_absolute_uri(verify_url)
+            
+            ConfirmUserEmail.send_email(
+                to_email=user.email, 
+                confirm_url=confirm_url, 
+                nombre=user.username
+            )
+            
+            self.logger.info(f'Re-enviado email de confirmación a {user.username} - {user.email}')
+            
+            return Response(
+                {"message": "Correo de verifiacion enviado"}, 
+                status=status.HTTP_200_OK
+            )
+    
 @extend_schema(
     summary="Verificar Cuenta",
     tags=["users"],
@@ -372,6 +433,8 @@ def confirm_user(request):
         tags={'endpoint': 'confirm_user'},
         success_message={'detail': 'Correo verificado con éxito'}
     )
+
+
 
 @extend_schema(
     summary="Actualizar thumbnail del perfil",
