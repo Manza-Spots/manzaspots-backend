@@ -71,3 +71,15 @@ ROUTE_PHOTO_FILTER_PARAMS = [
     ),
 ]
 
+RESEND_CONFIRMATION_EMAIL_REQUEST = {
+    "application/json": {
+        "type": "object",
+        "properties": {
+            "email": {
+                "type": "string",
+                "description": "Correo que se verificara"
+            }
+        },
+        "required": ["email"]
+    }
+}
