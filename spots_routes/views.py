@@ -725,7 +725,7 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         parameters=NESTED_PATH_PARAMS + ROUTE_PHOTO_FILTER_PARAMS,
         tags=["routes-photos"],
         description=(
-            "Obtiene una lista de todas las fotos de rutas.\n\n"
+            "Obtiene una lista de todas las fotos de rutas de un spot indicado en el query paramter\n\n"
             "Soporta filtrado por ruta, usuario, etc.\n\n"
             f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_list`"
         )
@@ -802,33 +802,52 @@ class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
     ViewSet para gestionar las fotos de rutas.
     """
-    queryset = RoutePhoto.objects.select_related('user', 'route')
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RoutePhotoFilter
+    
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return RoutePhoto.objects.none()
+
+        queryset = RoutePhoto.objects.select_related('user', 'route')
+
+        route_id = self.kwargs.get('route_pk')
+        spot_id = self.kwargs.get('spot_pk')
+
+        if route_id:
+            queryset = queryset.filter(
+                route_id=route_id,
+                route__spot_id=spot_id,
+                route__is_active=True
+            )
+
+        if self.action == "my_photos":
+            queryset = queryset.filter(user=self.request.user)
+
+        return queryset
     
     def get_serializer_class(self):
         """
         Usa diferentes serializers según la acción.
         """
-        if self.action == 'create' or 'update' or 'partial_update':
+        if self.action in ['create', 'update', 'partial_update']:
             return RoutePhotoCreateSerializer
         return RoutePhotoSerializer
     
     def perform_create(self, serializer):
-        """
-        Asigna automáticamente el usuario y la ruta al crear una foto.
-        """
-        # Obtener el route_id desde los datos de la petición
-        route_id = self.request.data.get('route')
-        
+        route_id = self.kwargs.get('route_pk')
+
         if not route_id:
-            return Response(
-                {'error': 'Se requiere el ID de la ruta'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        route = get_object_or_404(Route, id=route_id, is_active=True)
+            raise ValidationError({'route': 'Se requiere el ID de la ruta'})
+
+        route = get_object_or_404(
+            Route,
+            id=route_id,
+            spot_id=self.kwargs.get('spot_pk'),
+            is_active=True
+        )
+
         serializer.save(user=self.request.user, route=route)
     
     @extend_schema(
@@ -862,7 +881,7 @@ class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         "Obtiene la lista de rutas marcadas como favoritas por el usuario autenticado."
         "- Solo muestra favoritos activos""- Requiere autenticación"
         "- Incluye información completa de cada ruta"
-        f"**Code:** `{_MODULE_PATH}.RoutePhotoViewSet_create`"
+        f"**Code:** `{_MODULE_PATH}.UserFavoriteRouteView`"
     ),
     tags=['routes-favorite'],
     responses={

@@ -30,12 +30,6 @@ ROUTE_FILTER_PARAMS = [
         description="ID del usuario que creó la ruta"
     ),
     OpenApiParameter(
-        name="spot",
-        type=OpenApiTypes.INT,
-        location=OpenApiParameter.QUERY,
-        description="ID del spot"
-    ),
-    OpenApiParameter(
         name="difficulty",
         type=OpenApiTypes.STR,
         location=OpenApiParameter.QUERY,
@@ -45,7 +39,7 @@ ROUTE_FILTER_PARAMS = [
         name="travel_mode",
         type=OpenApiTypes.STR,
         location=OpenApiParameter.QUERY,
-        description="Clave del modo de viaje (walk, bike, car)"
+        description="Clave del modo de viaje (walking, cycling, de momento)"
     ),
     OpenApiParameter(
         name='expand',

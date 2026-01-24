@@ -150,9 +150,9 @@ class RouteSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_name', 'difficulty', 'difficulty_name',
             'travel_mode', 'travel_mode_name', 'description', 
-            'path', 'is_active', 'route_photos', 'is_favorite', 'created_at'
+            'path', 'route_photos', 'is_favorite', 'created_at'
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'distance','spot']
+        read_only_fields = ['id', 'user', 'created_at', 'distance','spot', 'is_active']
     
     def get_is_favorite(self, obj) -> bool:
         request = self.context.get('request')
