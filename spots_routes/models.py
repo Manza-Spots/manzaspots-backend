@@ -4,6 +4,7 @@ from django.contrib.gis.db import models as gis_models
 from django.core.validators import FileExtensionValidator
 from django.utils.html import format_html
 from authentication.views import User
+from core.models import BaseModel
 from core.utils.upload_image import route_photo_path, spot_photo_path, spot_thumbnail_path
 from django.contrib.gis.geos import GEOSGeometry
 
@@ -29,7 +30,7 @@ def get_rejected():
     """Obtener estado rechazado"""
     return SpotStatusReview.objects.get(key='REJECTED').id
 
-class Spot(models.Model):
+class Spot(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_created')
     name = models.CharField(max_length=50)
     description = models.TextField()
@@ -47,8 +48,6 @@ class Spot(models.Model):
     reject_reason = models.TextField(null=True, blank=True)
     reviewed_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_reviewed', blank=True, null=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=False)
     
     def __str__(self):
@@ -76,7 +75,7 @@ class Spot(models.Model):
                 pass
         super().save(*args, **kwargs)
     
-class SpotCaption(models.Model):
+class SpotCaption(BaseModel):
     spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='captions')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='captions_made')
     description = models.TextField(blank=True, null=True)
@@ -89,8 +88,6 @@ class SpotCaption(models.Model):
         ],
         help_text="Formatos: JPG, PNG, WEBP"
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
     
     def __str__(self):
         return f"photo spot: {self.spot} for user: {self.user}"
@@ -105,13 +102,10 @@ class SpotCaption(models.Model):
                 pass
         super().delete(*args, **kwargs)
     
-class UserFavoriteSpot(models.Model):
+class UserFavoriteSpot(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_spots')
     spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='favorited_by')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null = True)
-    deleted_at = models.DateTimeField(blank=True, null = True)
-    is_active = models.BooleanField(default=True)
+
     
     def __str__(self):
         return f"favorite spot:{self.spot} user: {self.user}"
@@ -136,7 +130,7 @@ class TravelMode(models.Model):
     def __str__(self):
         return f"{self.name}"
     
-class Route(models.Model):
+class Route(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='routes_created')
     spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='routes')
     difficulty = models.ForeignKey(Difficulty, on_delete=models.CASCADE, related_name='routes_with_dificulty')
@@ -144,10 +138,6 @@ class Route(models.Model):
     description = models.TextField(blank=True, null=True)
     distance = models.DecimalField(max_digits=10, decimal_places=2, editable=False) 
     path = gis_models.LineStringField(geography=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
     
     def __str__(self):
         return f"route id: {self.pk} - spot: {self.spot}"
@@ -165,9 +155,8 @@ class Route(models.Model):
             self.distance = 0
 
         super().save(*args, **kwargs)
-
-    
-class RoutePhoto(models.Model):
+ 
+class RoutePhoto(BaseModel):
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='photo')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='photo_by')
     img_path = models.ImageField(
@@ -180,10 +169,6 @@ class RoutePhoto(models.Model):
         help_text="Formatos: JPG, PNG, WEBP"
     )
     location = gis_models.PointField(srid=4326, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
     
     def __str__(self):
         return f"photo id: {self.pk} - ruta: {self.route}"
@@ -198,13 +183,10 @@ class RoutePhoto(models.Model):
                 pass
         super().delete(*args, **kwargs)
 
-class UserFavoriteRoute(models.Model):
+class UserFavoriteRoute(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_routes')
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='favorites')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
+
     
     class Meta:
         unique_together = ('user', 'route')  
