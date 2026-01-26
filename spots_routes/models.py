@@ -50,6 +50,13 @@ class Spot(BaseModel):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=False)
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', '-created_at']),  
+            models.Index(fields=['user', '-created_at']),    
+            models.Index(fields=['is_active', 'status']),    
+    ]
+    
     def __str__(self):
         return f"{self.name}"
     
@@ -88,13 +95,18 @@ class SpotCaption(BaseModel):
         ],
         help_text="Formatos: JPG, PNG, WEBP"
     )
+    class Meta:
+        indexes = [
+            models.Index(fields=['spot', '-created_at']),
+            models.Index(fields=['user', '-created_at']),
+        ]
     
     def __str__(self):
         return f"photo spot: {self.spot} for user: {self.user}"
     
     def delete(self, *args, **kwargs):
         """Eliminar archivo físico al borrar el registro"""
-        if self.img_path:  # ← CAMBIO AQUÍ: era self.image
+        if self.img_path:  
             try:
                 if os.path.isfile(self.img_path.path):
                     os.remove(self.img_path.path)
@@ -138,6 +150,13 @@ class Route(BaseModel):
     description = models.TextField(blank=True, null=True)
     distance = models.DecimalField(max_digits=10, decimal_places=2, editable=False) 
     path = gis_models.LineStringField(geography=True)
+    class Meta:
+        indexes = [
+            models.Index(fields=['spot', '-created_at']),     
+            models.Index(fields=['user', '-created_at']),     
+            models.Index(fields=['difficulty']),              
+            models.Index(fields=['travel_mode']),             
+        ]
     
     def __str__(self):
         return f"route id: {self.pk} - spot: {self.spot}"
@@ -169,7 +188,11 @@ class RoutePhoto(BaseModel):
         help_text="Formatos: JPG, PNG, WEBP"
     )
     location = gis_models.PointField(srid=4326, blank=True, null=True)
-    
+    class Meta:
+        indexes = [
+            models.Index(fields=['route', '-created_at']),
+            models.Index(fields=['user', '-created_at']),
+        ]
     def __str__(self):
         return f"photo id: {self.pk} - ruta: {self.route}"
     
