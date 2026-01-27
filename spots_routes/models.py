@@ -1,12 +1,17 @@
 import os
 from django.contrib.gis.db import models
-from django.contrib.gis.db import models as gis_models
+from django.contrib.postgres.indexes import GistIndex
 from django.core.validators import FileExtensionValidator
-from django.utils.html import format_html
-from authentication.views import User
+from django.contrib.auth import get_user_model
+
 from core.models import BaseModel
-from core.utils.upload_image import route_photo_path, spot_photo_path, spot_thumbnail_path
-from django.contrib.gis.geos import GEOSGeometry
+from core.utils.upload_image import (
+    route_photo_path,
+    spot_photo_path,
+    spot_thumbnail_path,
+)
+
+User = get_user_model()
 
 #----------------------------------- SPOTS --------------------------------------------
 
@@ -39,11 +44,12 @@ class Spot(BaseModel):
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
+                
             )
         ],
         help_text="Formatos: JPG, PNG, WEBP"
     )
-    location = gis_models.PointField(srid=4326)
+    location = models.PointField(srid=4326)
     status = models.ForeignKey(SpotStatusReview, on_delete=models.CASCADE, related_name = 'spots', default=get_default_pending)
     reject_reason = models.TextField(null=True, blank=True)
     reviewed_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_reviewed', blank=True, null=True)
@@ -55,6 +61,7 @@ class Spot(BaseModel):
             models.Index(fields=['status', '-created_at']),  
             models.Index(fields=['user', '-created_at']),    
             models.Index(fields=['is_active', 'status']),    
+            GistIndex(fields=["location"]),
     ]
     
     def __str__(self):
@@ -149,7 +156,7 @@ class Route(BaseModel):
     travel_mode = models.ForeignKey(TravelMode, on_delete=models.CASCADE, related_name = 'routes_with_mode')
     description = models.TextField(blank=True, null=True)
     distance = models.DecimalField(max_digits=10, decimal_places=2, editable=False) 
-    path = gis_models.LineStringField(geography=True)
+    path = models.LineStringField(geography=True)
     class Meta:
         indexes = [
             models.Index(fields=['spot', '-created_at']),     
@@ -187,7 +194,7 @@ class RoutePhoto(BaseModel):
         ],
         help_text="Formatos: JPG, PNG, WEBP"
     )
-    location = gis_models.PointField(srid=4326, blank=True, null=True)
+    location = models.PointField(srid=4326, blank=True, null=True)
     class Meta:
         indexes = [
             models.Index(fields=['route', '-created_at']),

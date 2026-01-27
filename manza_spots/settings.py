@@ -397,7 +397,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': DEFAULT_THROTTLE_RATES,
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': config('PAGINATION_LIMIT'),
 
     'DEFAULT_RENDERER_CLASSES': [
         'manza_spots.renderers.StandardJSONRenderer',
