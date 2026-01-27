@@ -148,18 +148,45 @@ class TravelModeAdmin(admin.ModelAdmin):
 class RoutePhotoInline(admin.TabularInline):
     model = RoutePhoto
     extra = 0
-    readonly_fields = ("created_at", "updated_at", "thumbnail_inline")
-    fields = ("img_path", "thumbnail_inline", "location", "is_active", "created_at")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "map_preview",
+    )
+    fields = (
+        "img_path",
+        "map_preview",
+        "is_active",
+        "created_at",
+    )
     
-    def thumbnail_inline(self, obj):
-        """Miniatura en el inline"""
-        if obj.img_path:
-            return format_html(
-                '<img src="{}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;" />',
-                obj.img_path.url
-            )
-        return "Sin imagen"
-    thumbnail_inline.short_description = "Preview"
+    def map_preview(self, obj):
+        if not obj.location:
+            return "Sin ubicación"
+
+        lat = obj.location.y
+        lng = obj.location.x
+
+        return format_html(
+            """
+            <iframe
+                width="350"
+                height="250"
+                style="border:0; border-radius:6px"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://www.google.com/maps?q={},{}&output=embed">
+            </iframe>
+            <br>
+            <a href="https://www.google.com/maps?q={},{}"
+            target="_blank"
+            style="font-size:12px">
+            Abrir en Google Maps
+            </a>
+            """,
+            lat, lng, lat, lng
+        )
+
 
 
 @admin.action(description="✅ Activar rutas seleccionadas")
@@ -199,7 +226,6 @@ class RouteAdmin(gis_admin.GISModelAdmin):
         "difficulty_colored",
         "travel_mode",
         "distance",
-        "path_preview",
         "start_point",
         "end_point",
         "photos_count",
@@ -244,18 +270,6 @@ class RouteAdmin(gis_admin.GISModelAdmin):
             )
         return "-"
     difficulty_colored.short_description = "Dificultad"
-    
-    def path_preview(self, obj):
-        """Vista previa simple del path"""
-        if obj.path:
-            num_points = len(obj.path.coords)
-            return format_html(
-                '<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;" title="{}">📍 {} pts</span>',
-                f"{num_points} coordenadas en la ruta",
-                num_points
-            )
-        return format_html('<span style="color: #999;">Sin ruta</span>')
-    path_preview.short_description = "Path"
     
     def start_point(self, obj):
         """Punto inicial de la ruta"""
@@ -409,9 +423,9 @@ class RoutePhotoAdmin(gis_admin.GISModelAdmin):
         
         return format_html(
             '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">'
-            '<h4 style="margin-top:0;">📍 Coordenadas de la Foto</h4>'
-            '<p><strong>Latitud:</strong> {}</p>'
-            '<p><strong>Longitud:</strong> {}</p>'
+            '<h4 style="margin-top:0; color: black;">📍 Coordenadas de la Foto</h4>'
+            '<p style="color: black;"><strong>Latitud:</strong> {}</p>'
+            '<p style="color: black;"><strong>Longitud:</strong> {}</p>'
             '<p style="margin-bottom:0;"><a href="https://www.google.com/maps?q={},{}" target="_blank" '
             'style="color: #007bff; text-decoration: none;">🗺️ Ver en Google Maps</a></p>'
             '</div>',
