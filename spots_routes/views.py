@@ -15,7 +15,7 @@ from drf_spectacular.utils import (
 from authentication.views import User
 from core.mixins import  ViewSetSentryMixin
 from core.permission import IsOwnerOrAdmin, IsOwnerOrReadOnly
-from spots_routes.filters import RouteFilter, RoutePhotoFilter
+from spots_routes.filters import RouteFilter, RoutePhotoFilter, SpotFilter
 from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
 from spots_routes.serializer import (
     SpotCaptionCreateSerializer, 
@@ -108,6 +108,8 @@ _MODULE_PATH = __name__
 class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
     serializer_class = SpotSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SpotFilter
     
     def get_permissions(self): 
             """Permisos dinámicos según la acción"""
@@ -121,32 +123,17 @@ class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        queryset = Spot.objects.filter(deleted_at__isnull=True)
-                
-        if self.action == 'list':
-            if user.is_staff:
-                status_param = self.request.query_params.get('status')
-                if status_param:
-                    queryset = queryset.filter(status__key=status_param)
-            else:
-                queryset = queryset.filter(
-                    is_active=True,
-                    status__key='APPROVED'
-                )
-            
-            # Filtro por nombre
-            name = self.request.query_params.get('name')
-            if name:
-                queryset = queryset.filter(name__icontains=name)
-        
-        elif self.action == "retrieve":
+
+        queryset = Spot.objects
+
+        if self.action in ("list", "retrieve"):
             if not user.is_staff:
                 queryset = queryset.filter(
                     is_active=True,
-                    status__key='APPROVED'
-                )  
-        
-        return queryset
+                    status__key="APPROVED"
+                )
+
+        return queryset.order_by("-created_at")
     
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -257,7 +244,7 @@ class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
             user=request.user,
             deleted_at__isnull=True,
             is_active = True,
-        )
+        ).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
@@ -341,7 +328,58 @@ class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-
+    
+    @extend_schema(
+        summary="Agregar/Quitar favorito",
+        tags=["spots", "spots-favorite"],
+        request=None,
+        description="Maneja el estado de favorito del spot (toggle)"
+    )
+    @action(detail=True, methods=['post', 'delete'], url_path='favorites')
+    def favorites(self, request, pk=None):
+        spot = self.get_object()
+        
+        if request.method == 'POST':
+            favorite, created = UserFavoriteSpot.objects.get_or_create(
+                user=request.user,
+                spot=spot,
+                defaults={'is_active': True}
+            )
+            
+            if not created:
+                if not favorite.is_active:
+                    favorite.is_active = True
+                    favorite.save()
+                    return Response(
+                        {'status': 'added'},
+                        status=status.HTTP_200_OK
+                    )
+                return Response(
+                    {'status': 'already_exists'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            return Response(
+                {'status': 'added'},
+                status=status.HTTP_201_CREATED
+            )
+        
+        elif request.method == 'DELETE':
+            try:
+                favorite = UserFavoriteSpot.objects.get(
+                    user=request.user,
+                    spot=spot,
+                    is_active=True
+                )
+                favorite.is_active = False
+                favorite.save()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except UserFavoriteSpot.DoesNotExist:
+                return Response(
+                    {'detail': 'No está en favoritos'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+    
 @extend_schema(
     summary="Listar mis favoritos",
     tags=["spots-favorite"],
@@ -365,7 +403,7 @@ class UserFavoriteSpotsView(generics.ListAPIView):
             is_active=True,
             spot__is_active =True,
             spot__status__key = "APPROVED"
-        ).select_related('spot')
+        ).select_related('spot').order_by('-created_at')
 
 
 @extend_schema_view(
@@ -452,7 +490,7 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     
     def get_serializer_class(self):
-        if self.action == 'create' or 'update' or 'partial_update':
+        if self.actionin in ['create', 'update', 'partial_update']:
             return SpotCaptionCreateSerializer
         return SpotCaptionSerializer
     
@@ -561,7 +599,7 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     """
     queryset = Route.objects.filter(is_active=True).select_related(
         'user', 'difficulty', 'travel_mode', 'spot'
-    ).prefetch_related('photo')
+    ).prefetch_related('photo').order_by('-created_at')
     serializer_class = RouteSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     
@@ -580,7 +618,7 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         if self.action == 'retrieve' or 'photos' in expand.split(','):
             queryset = queryset.prefetch_related('photo')
         
-        return queryset
+        return queryset.order_by('-created_at')
     
     def get_serializer_class(self):
         """
@@ -820,12 +858,12 @@ class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
                 route_id=route_id,
                 route__spot_id=spot_id,
                 route__is_active=True
-            )
+            ).order_by('-created_at')
 
         if self.action == "my_photos":
             queryset = queryset.filter(user=self.request.user)
 
-        return queryset
+        return queryset.order_by('-created_at')
     
     def get_serializer_class(self):
         """
@@ -871,7 +909,7 @@ class RoutePhotoViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         """
         Obtiene solo las fotos del usuario autenticado.
         """
-        photos = self.get_queryset().filter(user=request.user)
+        photos = self.get_queryset().filter(user=request.user).order_by('-created_at')
         serializer = self.get_serializer(photos, many=True)
         return Response(serializer.data)
 
@@ -901,4 +939,4 @@ class UserFavoriteRouteView(generics.ListAPIView):
             user=self.request.user,
             is_active=True,
             route__deleted_at__isnull=True
-        ).select_related('route')
+        ).select_related('route').order_by('-created_at')

@@ -268,7 +268,7 @@ class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
         Lista solo usuarios activos
         GET /users/active/
         """
-        active_users = self.queryset.filter(is_active=True)
+        active_users = self.queryset.filter(is_active=True).order_by('-created_at')
         serializer = self.get_serializer(active_users, many=True)
         return Response(serializer.data)
     
@@ -288,7 +288,7 @@ class UserViewSet(OwnerCheckMixin,ViewSetSentryMixin ,viewsets.ModelViewSet):
         Lista solo usuarios inactivos
         GET /users/inactive/
         """
-        inactive_users = self.queryset.filter(is_active=False)
+        inactive_users = self.queryset.filter(is_active=False).order_by('-created_at')
         serializer = self.get_serializer(inactive_users, many=True)
         return Response(serializer.data)
     

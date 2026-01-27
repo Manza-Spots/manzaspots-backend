@@ -4,23 +4,17 @@ import rest_framework_simplejwt.views as jwt_views
 from authentication.views import DocumentedTokenBlacklistView, DocumentedTokenObtainPairView, DocumentedTokenRefreshView, DocumentedTokenVerifyView, FacebookLogin, GoogleLogin, PasswordResetConfirmView, PasswordResetRequestView
 
 authentications_patterns = ([
-    # url tokens
+    # Tokens
     path('login/', DocumentedTokenObtainPairView.as_view(), name="login"),
-    path("token/refresh/", DocumentedTokenRefreshView.as_view()),
-    path("token/verify/", DocumentedTokenVerifyView.as_view()),
     path('logout/', DocumentedTokenBlacklistView.as_view(), name="logout"),
+    path("token/refresh/", DocumentedTokenRefreshView.as_view(), name="token_refresh"),
+    path("token/verify/", DocumentedTokenVerifyView.as_view(), name="token_verify"),
     
-    # url recovery password
-    path('reset-password/', PasswordResetRequestView.as_view(), name='reset-password'),
-    path('reset-password-confirm/', PasswordResetConfirmView.as_view(), name='reset-password-confirm'),
+    # Password Recovery
+    path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 
-    #url providers
-    # path('accounts/', include('allauth.urls')),  
-    # path('registration/', include('dj_rest_auth.registration.urls')),    
-    path('google/', GoogleLogin.as_view(), name='google_login'),
-    path('facebook/', FacebookLogin.as_view(), name='facebook_login'),
-    
-    path("token/refresh/", DocumentedTokenRefreshView.as_view()),
-    path("token/verify/", DocumentedTokenVerifyView.as_view()),
-
+    # OAuth Providers
+    path('oauth/google/', GoogleLogin.as_view(), name='google_login'),
+    path('oauth/facebook/', FacebookLogin.as_view(), name='facebook_login'),
 ], "auth")
