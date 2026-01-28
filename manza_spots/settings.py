@@ -11,6 +11,7 @@ import logging.config
 from django.conf import settings
 DEBUG = config('DEBUG', cast=bool)
 
+#Porblema de django avienta warnings estupidos toco ignorarlos
 warnings.filterwarnings(
     "ignore",
     message="app_settings.USERNAME_REQUIRED is deprecated",
@@ -120,10 +121,6 @@ TEMPLATES = [
 
 #----------------------------- DATABASE ----------------------------------------------------
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # },
     'default': {
         'ENGINE': config('DB_ENGINE'),
         'NAME': config('DB_NAME'),
@@ -187,6 +184,7 @@ SIMPLE_JWT = {
 REST_USE_JWT = True
 JWT_AUTH_COOKIE = 'access'
 JWT_AUTH_REFRESH_COOKIE = 'refresh'
+
 # ---------------------------------------------- CORS ----------------------------------------
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
@@ -304,7 +302,7 @@ LOGGING = {
     },
 }
 
-#-------------------------------------------- CUENTA DE GOOGLE -------------------------------------------
+#-------------------------------------------- AUTENTICACION DE ALLAUTH -------------------------------------------
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -336,8 +334,11 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT')
 
 #--------------------------------- DJANGO GEO ------------------------------------------------
+#Si se quiere ejecutar de forma local desde una maquina windows, es necesario tener instalado OSGeo4W en el disco.
+#No es necesario si se ejecutara desde mac, linux o docker
 if os.name == 'nt':
     OSGEO_PATH = config('OSGEO_PATH')
     
@@ -350,6 +351,7 @@ if os.name == 'nt':
     
     
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
+#Configuracion de los limites de peticiones de la api
 if config('ACTIVE_RATES', default=False, cast=bool):
     DEFAULT_THROTTLE_CLASSES = (
             'rest_framework.throttling.AnonRateThrottle',
@@ -407,6 +409,7 @@ REST_FRAMEWORK = {
 }
 
 #-------------------------------------------- SPECTACULAR SETTINGS  ------------------------------------------------
+#configuracion de la documentacion
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Manza Spots',
     'DESCRIPTION': 'API para gestión de spots, rutas y perfiles de usuarios',
@@ -424,8 +427,8 @@ SPECTACULAR_SETTINGS = {
         {'name': 'routes-favorite', 'description' : 'Rutas favoritas'},                
     ],
         
-        # Configuración de componentes
-    'COMPONENT_SPLIT_REQUEST': True,  # Separa request/response schemas
+        
+    'COMPONENT_SPLIT_REQUEST': True,  
     'SCHEMA_PATH_PREFIX': r'/api/',   # Prefijo de tus URLs
     
     # Autenticación
@@ -466,16 +469,17 @@ UNVERIFIED_USER_EXPIRATION_DAYS = 7
 
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
+
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS",
     default="localhost,127.0.0.1",
     cast=lambda v: [s.strip() for s in v.split(",")]
 )
+
 ROOT_URLCONF = 'manza_spots.urls'
 WSGI_APPLICATION = 'manza_spots.wsgi.application'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SITE_ID = 1
-GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT')
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',

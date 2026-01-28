@@ -8,8 +8,7 @@ from django.contrib.auth.models import User
 from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
 from core.permission import IsOwnerOrReadOnly
 from manza_spots.throttling import RegisterThrottle
-from spots_routes.utils import RESEND_CONFIRMATION_EMAIL_REQUEST
-from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
+from users.docs.users import RESEND_CONFIRMATION_EMAIL_REQUEST, RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
 from .serializers import (UserAdminSerializer, UserCreateSerializer, UserPrivateSerializer, UserProfileSerializer, UserProfileThumbSerializer, UserPublicSerializer, 
                           UserUpdateSerializer)

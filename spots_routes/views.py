@@ -32,7 +32,7 @@ from drf_spectacular.types import OpenApiTypes
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from spots_routes import models
-from spots_routes.utils import ROUTE_FILTER_PARAMS, ROUTE_PHOTO_FILTER_PARAMS, NESTED_PATH_PARAMS
+from spots_routes.docs.params import ROUTE_FILTER_PARAMS, ROUTE_PHOTO_FILTER_PARAMS, NESTED_PATH_PARAMS
 _MODULE_PATH = __name__
 
 @extend_schema_view(
@@ -490,7 +490,7 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     
     def get_serializer_class(self):
-        if self.actionin in ['create', 'update', 'partial_update']:
+        if self.action in ['create', 'update', 'partial_update']:
             return SpotCaptionCreateSerializer
         return SpotCaptionSerializer
     
