@@ -4,18 +4,6 @@ volumes:
 - **Define el volumen** `postgres_data` que se usa arriba
 - Aquí se guardan los datos de PostgreSQL de forma persistente
 
----
-
-## ARCHIVO 2: `.dockerignore`
-
-Este archivo le dice a Docker **qué NO copiar** cuando construye la imagen.
-
-### Creación del archivo:
-1. En la raíz de tu proyecto, crea un archivo llamado: **`.dockerignore`**
-   - Nota el **punto al inicio** del nombre (es importante)
-2. Copia y pega el contenido de abajo
-
-### Contenido explicado:
 ```
 __pycache__
 *.pyc
@@ -59,6 +47,5 @@ db.sqlite3
 ```
 node_modules/
 ```
-- Si usas Node.js/npm para frontend (carpeta muy pesada)
 
 ---
