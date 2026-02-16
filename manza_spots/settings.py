@@ -99,7 +99,6 @@ MIDDLEWARE = [
 
 
 #----------------------------- DIRECCION DE LOS TEMPLATES(EN ESTE CASO SOLO LOS DE EMAILS) ----------------------------------------------------
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -179,31 +178,42 @@ SIMPLE_JWT = {
 
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'TOKEN_OBTAIN_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenObtainPairSerializer',
+    'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
 }
 
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = 'access'
-JWT_AUTH_REFRESH_COOKIE = 'refresh'
+# REST_USE_JWT = True
+# JWT_AUTH_COOKIE = 'access'
+# JWT_AUTH_REFRESH_COOKIE = 'refresh'
 
 # ---------------------------------------------- CORS ----------------------------------------
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
     default="",
     cast=lambda v: [s.strip() for s in v.split(",") if s]
-)
+) if not DEBUG else []
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 #---------------------------------------------- REST AUTH -----------------------------------------------------
 REST_AUTH = {
     'USE_JWT': True,
-    'JWT_AUTH_COOKIE': None,
-    'JWT_AUTH_REFRESH_COOKIE': None,
-    'JWT_AUTH_HTTPONLY': True,
     'JWT_AUTH_RETURN_EXPIRATION': True,
-    'JWT_AUTH_SECURE': False,  # Cambia a True si usas HTTPS
-    'JWT_AUTH_SAMESITE': 'Lax',
-
     'REGISTER_SERIALIZER': 'dj_rest_auth.registration.serializers.RegisterSerializer',
-    'TOKEN_MODEL': None,  # No se usa Token model cuando USE_JWT=True
+    'TOKEN_MODEL': None,  
 }
 
 #---------------------------------------------- ALL AUTH -----------------------------------------------------
@@ -302,7 +312,7 @@ LOGGING = {
     },
 }
 
-#-------------------------------------------- AUTENTICACION DE ALLAUTH -------------------------------------------
+#-------------------------------------------- SOCIALACCOUNT_PROVIDERS DE ALLAUTH -------------------------------------------
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -438,6 +448,7 @@ SPECTACULAR_SETTINGS = {
 
 
 #------------------------------ CACHE -------------------------------------------------------------
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
@@ -467,6 +478,21 @@ SCHEDULER_CONFIG = {
 
 UNVERIFIED_USER_EXPIRATION_DAYS = 7
 
+# ==================== SECURITY (Producción) ====================
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+#================================================ AUTH BACKEND =====================================================
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
 
@@ -480,6 +506,8 @@ ROOT_URLCONF = 'manza_spots.urls'
 WSGI_APPLICATION = 'manza_spots.wsgi.application'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SITE_ID = 1
+
+#================================================ AUTH BACKEND =====================================================
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
