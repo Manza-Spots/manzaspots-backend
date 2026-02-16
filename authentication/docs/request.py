@@ -1,5 +1,4 @@
-# users/docs/auth.py
-from core.docs.core import simple_detail_response
+from core.docs.response import simple_detail_response
 
 
 GOOGLE_LOGIN_REQUEST = {
@@ -29,17 +28,15 @@ FACEBOOK_LOGIN_REQUEST = {
 }
 
 
-LOGIN_RESPONSE = {
-    200: {
+RESEND_CONFIRMATION_EMAIL_REQUEST = {
+    "application/json": {
         "type": "object",
         "properties": {
-            "access": {"type": "string"},
-            "refresh": {"type": "string"}
-        }
+            "email": {
+                "type": "string",
+                "description": "Correo que se verificara"
+            }
+        },
+        "required": ["email"]
     }
 }
-
-
-REQUEST_NEW_PASSWORD_RESPONSE = simple_detail_response("Si el usuario existe, se enviará un correo con instrucciones.")
-        
-CONFIRM_NEW_PASSWORD_RESPONSE = simple_detail_response("Contraseña restablecida con éxito.")

@@ -1,4 +1,4 @@
-from core.docs.core import simple_detail_response
+from core.docs.response import simple_detail_response
 
 
 RESPONSE_ACTIVATE_USER = simple_detail_response("Usuario [username] activado.")
