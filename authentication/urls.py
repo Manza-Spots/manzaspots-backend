@@ -30,6 +30,6 @@ authentications_patterns = ([
 
     # ========== Register User ============
     path('register/', RegistrationAPIView.as_view(), name='register'),
-    path('verify/', VerifyEmailAPIView.as_view(), name='confirm_user'),
+    path('email/verify/', VerifyEmailAPIView.as_view(), name='confirm_user'),
     path('resend-token/', ResendTokenAPIView.as_view(), name='resend_token')
 ], 'auth')
