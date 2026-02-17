@@ -10,7 +10,9 @@ from django.dispatch import receiver
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as gis_models
 from django.core.validators import FileExtensionValidator
-from authentication.views import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 @receiver(post_save, sender=Spot)
 def rename_thumbnail_after_create(sender, instance, created, **kwargs):

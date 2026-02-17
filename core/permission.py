@@ -1,4 +1,6 @@
-from authentication.views import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 from rest_framework import viewsets, status, generics,permissions
 
 

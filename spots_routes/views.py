@@ -12,7 +12,9 @@ from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
 )
-from authentication.views import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 from core.mixins import  ViewSetSentryMixin
 from core.permission import IsOwnerOrAdmin, IsOwnerOrReadOnly
 from spots_routes.filters import RouteFilter, RoutePhotoFilter, SpotFilter
