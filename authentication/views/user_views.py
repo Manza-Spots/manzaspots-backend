@@ -87,7 +87,7 @@ class ResendTokenAPIView(SentryErrorHandlerMixin, CreateAPIView):
                 'component': 'ResendTokenAPIView._post',
             },
             success_message={
-                'detail': UserMessages.USER_CREATED
+                'detail': UserMessages.EMAIL_SENT_IF_EXISTS
             },
             success_status=status.HTTP_201_CREATED
         )
@@ -102,7 +102,7 @@ class ResendTokenAPIView(SentryErrorHandlerMixin, CreateAPIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"message": UserMessages.USER_CREATED}, 
+                {"message": UserMessages.EMAIL_SENT_IF_EXISTS}, 
                 status=status.HTTP_200_OK
             )
         

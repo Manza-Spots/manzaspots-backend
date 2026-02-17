@@ -14,10 +14,10 @@ from drf_spectacular.utils import (
     extend_schema_view,
     OpenApiResponse
 )
-
-from core.mixins import OwnerCheckMixin, ViewSetSentryMixin
+from core.responses.messages import UserMessages
+from core.mixins import OwnerCheckMixin, SentryErrorHandlerMixin, ViewSetSentryMixin
 from core.permission import IsOwnerOrReadOnly
-from users.docs.users import RESPONSE_DESACTIVATE_USER
+from users.docs.users import RESPONSE_ACTIVATE_USER, RESPONSE_DESACTIVATE_USER
 from users.models import UserProfile
 from core.services.email_service import UpdateUserEmail
 from authentication.services import UsersRegisterService
@@ -257,7 +257,7 @@ class UserViewSet(
     request=UserProfileThumbSerializer,
     responses={200: UserProfileThumbSerializer}
 )
-class UpdateProfileThumbView(UpdateAPIView):
+class UpdateProfileThumbView(SentryErrorHandlerMixin, UpdateAPIView):
     serializer_class = UserProfileThumbSerializer
     permission_classes = [IsAuthenticated]
     queryset = UserProfile.objects.all()
@@ -280,26 +280,31 @@ class UpdateProfileThumbView(UpdateAPIView):
         )
     }
 )
-class EmailUpdateAPIView(UpdateAPIView):
+class EmailUpdateAPIView(SentryErrorHandlerMixin, UpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = EmailUpdateSerializer
     logger = logging.getLogger(__name__)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data['email']
         user = request.user
-        message = "Si el correo existe, recibirás instrucciones"
+        email = serializer.validated_data['email']
 
         if User.objects.filter(email=email).exists():
-            return Response({"message": message}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": UserMessages.EMAIL_SENT_IF_EXISTS},
+                status=status.HTTP_200_OK
+            )
 
         confirm_url = UsersRegisterService.get_confirmation_url(
             user=user,
             request=request,
-            email=email
+            new_email=email
         )
 
         UpdateUserEmail.send_email(
@@ -312,4 +317,7 @@ class EmailUpdateAPIView(UpdateAPIView):
             f"Solicitud de cambio de correo: {user.username} -> {email}"
         )
 
-        return Response({"message": message}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": UserMessages.EMAIL_SENT_IF_EXISTS},
+            status=status.HTTP_200_OK
+        )

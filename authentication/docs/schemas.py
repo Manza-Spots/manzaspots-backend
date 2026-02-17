@@ -164,9 +164,9 @@ RESEND_TOKEN = extend_schema(
     summary="Reenviar correo de verificacion",
     tags=["auth"],
     description=(
-        "Se envia al usuario un la opcion de verificar su cuenta (activarla) por correo.\n\n"
+        "Se re envia al usuario el token para verificar su cuenta (activarla) por correo.\n\n"
         "Pensado para ser utilizado en casos donde al usuario no le llego este correo al crear su cuenta\n\n"
-        f"**Code:** `{_MODULE_PATH_USER}.UserViewSet_me`"
+        f"**Code:** `{_MODULE_PATH_USER}.ResendTokenAPIView`"
     ),
     responses={
         201: OpenApiResponse(description=UserMessages.USER_CREATED),
