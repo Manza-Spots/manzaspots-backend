@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from decimal import Decimal
+from django.contrib.auth.hashers import check_password
 
 from users.models import UserProfile
 
@@ -58,37 +59,6 @@ class UserPrivateSerializer(serializers.ModelSerializer):
         fields = [ 'username', 'email', 'first_name', 'last_name',  'profile']
         read_only_fields = ['email']
 
-class UserCreateSerializer(serializers.ModelSerializer):
-    """Serializer para creación de usuarios con contraseña"""
-    password = serializers.CharField(
-        write_only=True, required=True, 
-        validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)
-    
-    class Meta:
-        model = User
-        fields = ['username', 'password', 'password2', 'email']
-        extra_kwargs = {
-            'email': {'required': True}
-        }
-    
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({
-                "password": "Las contraseñas no coinciden."
-            })
-        if User.objects.filter(email=attrs['email']).exists():
-            raise serializers.ValidationError({
-                "email": "Este email ya está registrado."
-            })
-        return attrs
-    
-    def create(self, validated_data):
-        validated_data.pop('password2')
-        user = User.objects.create_user(**validated_data)
-        return user
-
-
 class UserUpdateSerializer(serializers.ModelSerializer):
     
     """Serializer para actualización de usuarios"""
@@ -98,5 +68,19 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'username': {'required': False}
         }
+
+class EmailUpdateSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
     
+    def validate(self, data):
+        """Valida que la contraseña sea correcta"""
+        user = self.context['request'].user
+        
+        if not check_password(data['password'], user.password):
+            raise serializers.ValidationError({
+                'password': 'Contraseña incorrecta.'
+            })
+        
+        return data
 

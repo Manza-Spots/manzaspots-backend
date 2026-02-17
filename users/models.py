@@ -4,7 +4,9 @@ from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 from django.db.models import DecimalField, Sum, Value
-from authentication.views import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 from core.utils.upload_image import user_thumbnail_path
 from spots_routes.models import Route, Spot
 
