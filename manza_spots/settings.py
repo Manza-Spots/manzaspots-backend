@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
 from decouple import config
 import sentry_sdk
 from rich.logging import RichHandler
@@ -225,8 +226,10 @@ ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
 # ---------------------------------------- EMAIL CONFIG -------------------------------------------
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+if 'test' in sys.argv:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587

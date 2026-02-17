@@ -100,7 +100,7 @@ class PasswordResetRequestViewTests(TestCase):
             password='oldpass123'
         )
     
-    @patch('auth.services.PasswordResetService.request_reset')
+    @patch('authentication.services.PasswordResetService.request_reset')
     def test_solicitud_reset_email_existente(self, mock_request_reset):
         """Solicitud con email existente retorna 200"""
         response = self.client.post(self.url, {
@@ -109,7 +109,7 @@ class PasswordResetRequestViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         mock_request_reset.assert_called_once()
     
-    @patch('auth.services.PasswordResetService.request_reset')
+    @patch('authentication.services.PasswordResetService.request_reset')
     def test_solicitud_reset_email_inexistente(self, mock_request_reset):
         """Email inexistente también retorna 200 (seguridad)"""
         response = self.client.post(self.url, {
@@ -135,7 +135,7 @@ class PasswordResetConfirmViewTests(TestCase):
             password='oldpass123'
         )
     
-    @patch('auth.services.PasswordResetService.confirm_reset')
+    @patch('authentication.services.PasswordResetService.confirm_reset')
     def test_confirmar_reset_exitoso(self, mock_confirm_reset):
         """Confirmación con token válido cambia contraseña"""
         mock_confirm_reset.return_value = self.user
@@ -148,7 +148,7 @@ class PasswordResetConfirmViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         mock_confirm_reset.assert_called_once()
     
-    @patch('auth.services.PasswordResetService.confirm_reset')
+    @patch('authentication.services.PasswordResetService.confirm_reset')
     def test_confirmar_reset_token_invalido(self, mock_confirm_reset):
         """Token inválido retorna error"""
         mock_confirm_reset.side_effect =  ValidationError("Token inválido")
@@ -199,7 +199,7 @@ class RegistrationAPIViewTests(TestCase):
         }
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
-    @patch('auth.views.user_views.UsersRegisterService.get_confirmation_url')
+    @patch('authentication.views.user_views.UsersRegisterService.get_confirmation_url')
     def test_registro_exitoso(self, mock_get_url, mock_send_email):
         """Registro exitoso crea usuario inactivo y envía email"""
         mock_get_url.return_value = 'http://example.com/confirm/token123'
@@ -269,7 +269,7 @@ class RegistrationAPIViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
-    @patch('auth.views.user_views.UsersRegisterService.get_confirmation_url')
+    @patch('authentication.views.user_views.UsersRegisterService.get_confirmation_url')
     def test_registro_fallo_email_no_impide_creacion(self, mock_get_url, mock_send_email):
         """Si falla el envío de email, el usuario se crea igual"""
         mock_get_url.return_value = 'http://example.com/confirm/token123'
@@ -304,7 +304,7 @@ class ResendTokenAPIViewTests(TestCase):
         )
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
-    @patch('auth.views.user_views.UsersRegisterService.get_confirmation_url')
+    @patch('authentication.views.user_views.UsersRegisterService.get_confirmation_url')
     def test_reenvio_exitoso(self, mock_get_url, mock_send_email):
         """Reenvío a usuario inactivo funciona correctamente"""
         mock_get_url.return_value = 'http://example.com/confirm/token123'
@@ -364,7 +364,7 @@ class VerifyEmailAPIViewTests(TestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/api/v1/auth/verify/'  # Ajusta según tu URL
+        self.url = '/api/v1/auth/email/verify/'  # Ajusta según tu URL
         self.inactive_user = User.objects.create_user(
             username='testuser',
             email='old@example.com',
@@ -378,7 +378,7 @@ class VerifyEmailAPIViewTests(TestCase):
             is_active=True
         )
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_activacion_cuenta_exitosa(self, mock_verify):
         """Token válido activa cuenta nueva"""
         mock_verify.return_value = {
@@ -394,7 +394,7 @@ class VerifyEmailAPIViewTests(TestCase):
         self.inactive_user.refresh_from_db()
         self.assertTrue(self.inactive_user.is_active)
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_activacion_cuenta_ya_activa(self, mock_verify):
         """Activar cuenta ya activa retorna 200 (idempotente)"""
         mock_verify.return_value = {
@@ -407,7 +407,7 @@ class VerifyEmailAPIViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('message', response.data)
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_cambio_email_exitoso(self, mock_verify):
         """Token con nuevo email actualiza correctamente"""
         mock_verify.return_value = {
@@ -423,7 +423,7 @@ class VerifyEmailAPIViewTests(TestCase):
         self.active_user.refresh_from_db()
         self.assertEqual(self.active_user.email, 'newemail@example.com')
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_cambio_email_duplicado(self, mock_verify):
         """Cambio a email ya existente retorna error 400"""
         mock_verify.return_value = {
@@ -436,7 +436,7 @@ class VerifyEmailAPIViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_token_invalido(self, mock_verify):
         """Token inválido retorna error 400"""
         mock_verify.return_value = None
@@ -452,7 +452,7 @@ class VerifyEmailAPIViewTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_usuario_no_existe(self, mock_verify):
         """Usuario en token no existe retorna 404"""
         mock_verify.return_value = {
@@ -472,12 +472,12 @@ class RegistrationIntegrationTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.register_url = '/api/v1/auth/register/'
-        self.confirm_url = '/api/v1/auth/verify/'
+        self.confirm_url = '/api/v1/auth/email/verify/'
         self.resend_url = '/api/v1/auth/resend-token/'
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
-    @patch('auth.views.user_views.UsersRegisterService.get_confirmation_url')
-    @patch('auth.views.user_views.UsersRegisterService.verify_email_token')
+    @patch('authentication.views.user_views.UsersRegisterService.get_confirmation_url')
+    @patch('authentication.views.user_views.UsersRegisterService.verify_email_token')
     def test_flujo_completo_registro_confirmacion(
         self, mock_verify, mock_get_url, mock_send_email
     ):
@@ -511,7 +511,7 @@ class RegistrationIntegrationTests(TestCase):
         self.assertTrue(user.is_active)
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
-    @patch('auth.views.user_views.UsersRegisterService.get_confirmation_url')
+    @patch('authentication.views.user_views.UsersRegisterService.get_confirmation_url')
     def test_flujo_registro_reenvio_token(self, mock_get_url, mock_send_email):
         """Flujo: registro → reenviar token → confirmación"""
         # 1. Registro
