@@ -56,3 +56,10 @@ class ConfirmUserEmail:
         subject = "Confirmacion de cuenta"
         template_name = 'emails/confirm_email.html'
         EmailService.send_template_email(subject, to_email, template_name, **context)  
+
+class UpdateUserEmail:
+    @staticmethod
+    def send_email(to_email, **context):
+        subject = "Confirmacion de cuenta"
+        template_name = 'emails/update_email.html'
+        EmailService.send_template_email(subject, to_email, template_name, **context)  
