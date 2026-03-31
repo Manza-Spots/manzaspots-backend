@@ -1,9 +1,7 @@
 from django.test import TestCase
 
-# Create your tests here.
-# auth/tests/test_jwt_views.py
 from django.test import TestCase
-from rest_framework.exceptions import ValidationError  # ← Importar de DRF
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -195,7 +193,7 @@ class RegistrationAPIViewTests(TestCase):
             'username': 'testuser',
             'email': 'test@example.com',
             'password': 'SecurePass123!',
-            'password2': 'SecurePass123!'
+            'confirm_password': 'SecurePass123!'
         }
     
     @patch('core.services.email_service.ConfirmUserEmail.send_email')
@@ -262,7 +260,7 @@ class RegistrationAPIViewTests(TestCase):
     def test_registro_passwords_no_coinciden(self):
         """Passwords diferentes retornan error"""
         data = self.valid_data.copy()
-        data['password2'] = 'DifferentPass123!'
+        data['confirm_password'] = 'DifferentPass123!'
         
         response = self.client.post(self.url, data)
         
@@ -489,7 +487,7 @@ class RegistrationIntegrationTests(TestCase):
             'username': 'newuser',
             'email': 'new@example.com',
             'password': 'SecurePass123!',
-            'password2': 'SecurePass123!'
+            'confirm_password': 'SecurePass123!'
         }
         
         response = self.client.post(self.register_url, register_data)
@@ -521,7 +519,7 @@ class RegistrationIntegrationTests(TestCase):
             'username': 'newuser',
             'email': 'new@example.com',
             'password': 'SecurePass123!',
-            'password2': 'SecurePass123!'
+            'confirm_password': 'SecurePass123!'
         }
         
         self.client.post(self.register_url, register_data)
