@@ -220,10 +220,12 @@ REST_AUTH = {
 #---------------------------------------------- ALL AUTH -----------------------------------------------------
 ACCOUNT_LOGIN_METHODS = {'email'}
 
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'confirm_password*']
 
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_ADAPTER = 'config.adapters.CustomSocialAccountAdapter'
+
 
 # ---------------------------------------- EMAIL CONFIG -------------------------------------------
 if 'test' in sys.argv:

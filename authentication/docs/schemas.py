@@ -24,7 +24,7 @@ LOGIN_SCHEMA = extend_schema(
             'properties': {
                 'username': {
                     'type': 'string',
-                    'example': 'usuario@example.com',
+                    'example': 'chupapi muñaño',
                     'description': 'Username o email del usuario'
                 },
                 'email': {
