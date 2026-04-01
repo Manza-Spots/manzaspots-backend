@@ -1,6 +1,6 @@
 # serializers.py
+import re
 from rest_framework import serializers
-from django.contrib.auth.models import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
@@ -49,20 +49,37 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return super().validate(attrs)
 
-    
 class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer para creación de usuarios con contraseña"""
     password = serializers.CharField(
-        write_only=True, required=True, 
+        write_only=True, required=True,
         validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
-    
+
     class Meta:
         model = User
         fields = ['username', 'password', 'password2', 'email']
         extra_kwargs = {
             'email': {'required': True}
         }
+
+    def validate_username(self, value):
+        value = value.strip()  
+
+        if len(value) < 5:
+            raise serializers.ValidationError(
+                "El nombre de usuario debe tener al menos 5 caracteres."
+            )
+        if not re.match(r'^[a-zA-Z0-9_-]+$', value):
+            raise serializers.ValidationError(
+                "El nombre de usuario solo puede contener letras, números, _ y -"
+            )
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError(
+                "Este nombre de usuario ya está en uso."
+            )
+
+        return value
     
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -74,7 +91,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 "email": "Este email ya está registrado."
             })
         return attrs
-    
+
     def create(self, validated_data):
         validated_data.pop('password2')
         user = User.objects.create_user(**validated_data)

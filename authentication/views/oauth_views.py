@@ -11,13 +11,13 @@ from authentication.base import BaseOAuthView
 from authentication.docs.schemas import FACEBOOK, GOOGLE
 from authentication.services import AuthenticationService
 from authentication.adapters import CustomFacebookOAuth2Adapter
-from django.contrib.auth import get_user_model
 from authentication.docs.request import GOOGLE_LOGIN_REQUEST, FACEBOOK_LOGIN_REQUEST
 from authentication.docs.response import LOGIN_RESPONSE
 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 
 from core.responses.messages import UserMessages
 
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 _MODULE_PATH = 'auth.views.oauth_views'
