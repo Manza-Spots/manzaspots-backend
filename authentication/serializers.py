@@ -48,7 +48,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 })
 
         return super().validate(attrs)
-
 class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer para creación de usuarios con contraseña"""
     password = serializers.CharField(
@@ -56,7 +55,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True, required=True)
     
-
     class Meta:
         model = User
         fields = ['username', 'password', 'confirm_password', 'email']
@@ -94,7 +92,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 "email": "Este email ya está registrado."
             })
         return attrs
-
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
