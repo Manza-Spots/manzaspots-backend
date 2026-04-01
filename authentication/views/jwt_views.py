@@ -82,6 +82,7 @@ class LoginView(BaseJWTView, GenericAPIView):
                         nombre=user_obj.username
                     )
                     self.logger.info(f'Re-enviado email de confirmación a {user_obj.username}')
+                    return Response(AuthMessages.ACCOUNT_CONFIRMATION_REQUIRED, status=status.HTTP_401_UNAUTHORIZED)
                 else:
                     self.log_auth_event(
                         'jwt_login_failed', user=None, success=False,
