@@ -28,7 +28,9 @@ class AuthMessages:
     # Error messages
     PASSWORDL_REQUIRED = 'el campo password es requerido'
     EMAIL_USERNAMEL_REQUIRED = 'Debe proporcionar username o email'
-    CREDENTIALS_INVALID = 'Credenciales incorrectas. Si acabas de crear tu cuenta, revisa tu correo electrónico y actívala antes de iniciar sesión.'
+    CREDENTIALS_INVALID = 'Credenciales incorrectas'
+    ACCOUNT_CONFIRMATION_REQUIRED = 'Necesitas confirmar tu cuenta, consulta la bandeja de entrada de tu correo'
+
 
 
 class ErrorMessages:
