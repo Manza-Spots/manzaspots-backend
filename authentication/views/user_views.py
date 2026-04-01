@@ -3,7 +3,6 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes,authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
-from django.contrib.auth.models import User
 from authentication.docs.schemas import REGISTRATION, RESEND_TOKEN, VERIFY_EMAIL, VERIFY_USER
 from authentication.serializers import ResendTokenSerializer, UserCreateSerializer, VerifyEmailSerializer
 from core.mixins import SentryErrorHandlerMixin, ViewSetSentryMixin
@@ -24,6 +23,7 @@ from rest_framework.mixins import (
 from django.contrib.auth import get_user_model
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
+User = get_user_model()
 
 
 _MODULE_PATH = __name__

@@ -84,7 +84,6 @@ class LoginViewTests(TestCase):
 # auth/tests/test_password_views.py
 from django.test import TestCase
 from rest_framework.test import APIClient
-from django.contrib.auth import get_user_model
 from unittest.mock import patch
 
 class PasswordResetRequestViewTests(TestCase):
@@ -175,7 +174,7 @@ class PasswordResetConfirmViewTests(TestCase):
     
 # auth/tests.py
 from django.test import TestCase
-from django.contrib.auth.models import User
+User = get_user_model()
 from rest_framework.test import APIClient
 from rest_framework import status
 from unittest.mock import patch, MagicMock

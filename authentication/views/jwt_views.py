@@ -23,6 +23,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.responses.messages import AuthMessages
 from authentication.base import BaseAuthenticationView
 
+from django.contrib.auth import get_user_model
 User = get_user_model()
 _MODULE_PATH = 'auth.views.jwt_views'
 
