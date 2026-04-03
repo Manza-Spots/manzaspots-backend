@@ -1,5 +1,6 @@
 import logging
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import (
@@ -303,7 +304,6 @@ class EmailUpdateAPIView(SentryErrorHandlerMixin, UpdateAPIView):
 
         confirm_url = UsersRegisterService.get_confirmation_url(
             user=user,
-            request=request,
             new_email=email
         )
 

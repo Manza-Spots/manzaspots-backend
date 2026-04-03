@@ -131,6 +131,7 @@ DATABASES = {
     }
 }
 
+AUTH_USER_MODEL = 'users.User'
 #-------------------------------------- PASSWORD VALIDATORS --------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -224,7 +225,7 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'confirm_password*']
 
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 SOCIALACCOUNT_AUTO_SIGNUP = True
-SOCIALACCOUNT_ADAPTER = 'config.adapters.CustomSocialAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'manza_spots.adapters.CustomSocialAccountAdapter'
 
 
 # ---------------------------------------- EMAIL CONFIG -------------------------------------------
@@ -449,6 +450,10 @@ SPECTACULAR_SETTINGS = {
     # Autenticación
     'SECURITY': [{'bearerAuth': []}],
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'POSTPROCESSING_HOOKS': [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "core.docs.hooks.add_global_error_responses",
+    ],
 }
 
 

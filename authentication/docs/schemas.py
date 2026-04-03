@@ -1,22 +1,21 @@
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter, OpenApiExample
 from authentication.docs.request import GOOGLE_LOGIN_REQUEST, RESEND_CONFIRMATION_EMAIL_REQUEST
-from authentication.docs.response import LOGIN_RESPONSE
+from authentication.docs.response import JWT_SUCCES_RESPONSE
 from authentication.serializers import UserCreateSerializer
+from core.docs.response import RESPONSE_400_OAUTH, RESPONSE_401, RESPONSE_404, RESPONSE_409, response_400, response_429
 from core.responses.messages import AuthMessages, UserMessages
 from core.responses.schemas import UserResponses
-_MODULE_PATH_JWT = 'auth.views.jwt_views'
-_MODULE_PATH_SOCIAL = 'auth.views.oauth_views'
-_MODULE_PATH_PASSWORD = 'authentication.views.password_views'
-_MODULE_PATH_USER = 'authentication.views.user_views'
+
+THROTTLE_HOUR = 3600
+
 #========================================== JWT VIEWS ================================================
 
-LOGIN_SCHEMA = extend_schema(
+LOGIN_SCHEMA = dict(
     tags=['auth'],
     summary='Iniciar Sesión',
     description=(
         'Autenticación con **username o email** + contraseña.\n\n'
         'Retorna access y refresh tokens.\n\n'
-        f'**Code:** `{_MODULE_PATH_JWT}.LoginView`'
     ),
     request={
         'application/json': {
@@ -37,30 +36,32 @@ LOGIN_SCHEMA = extend_schema(
             'required': ['password']
         }
     },
-    responses=LOGIN_RESPONSE
+    responses={
+        200: JWT_SUCCES_RESPONSE,
+        400: lambda code: response_400(code),
+        401: RESPONSE_401,
+        429: lambda code: response_429(THROTTLE_HOUR, code),
+    }
 )
 
-TOKEN_REFRESH = extend_schema(
+TOKEN_REFRESH = dict(
     summary="Renovar access token",
     description=(
         "Genera un nuevo **access token** usando un **refresh token válido**.\n\n"
-        f"**Code:** `{_MODULE_PATH_JWT}.TokenRefreshView`"
     ),
     tags=["auth"]
 )
 
-TOKEN_VERIFY = extend_schema(
+TOKEN_VERIFY = dict(
     summary="Verificar token JWT",
     tags=["auth"],
-    description=f"Verifica si un JWT es válido.\n\n**Code:** `{_MODULE_PATH_JWT}.TokenVerifyView`"
 )
 
-LOGOUT = extend_schema(
+LOGOUT = dict(
     tags=['auth'],
     summary='Cerrar sesión',
     description=(
         'Invalida el refresh token agregándolo a la blacklist.\n\n'
-        f"**Code:** `{_MODULE_PATH_JWT}.LogoutView`"
     ),
     responses={
         200: OpenApiResponse(description='Logout exitoso'),
@@ -69,76 +70,98 @@ LOGOUT = extend_schema(
 )
 
 #========================================== SOCIAL VIEWS ================================================
-GOOGLE = extend_schema(
+GOOGLE = dict(
     summary="Autenticación con Google",
     tags=["auth"],
     description=(
         "Autentica o registra usuarios mediante Google.\n\n"
         "El email se verifica automáticamente.\n\n"
-        f"**Code:** `{_MODULE_PATH_SOCIAL}.GoogleLoginView`"
     ),
 
     request=GOOGLE_LOGIN_REQUEST,
-    responses=LOGIN_RESPONSE
+    responses={
+        200: JWT_SUCCES_RESPONSE,
+        400: RESPONSE_400_OAUTH,
+        429: lambda code: response_429(THROTTLE_HOUR, code),
+    }
 )
 
-FACEBOOK = extend_schema(
+FACEBOOK = dict(
     summary="Autenticación con Facebook",
     tags=["auth"],
     description=(
         "Autentica o registra usuarios mediante Facebook.\n\n"
         "El email se verifica automáticamente.\n\n"
-        f"**Code:** `{_MODULE_PATH_SOCIAL}.FacebookLoginView`"
     ),
 
     request=GOOGLE_LOGIN_REQUEST,
-    responses=LOGIN_RESPONSE,
+    responses={
+        200: JWT_SUCCES_RESPONSE,
+        400: RESPONSE_400_OAUTH,
+        429: lambda code: response_429(THROTTLE_HOUR, code),
+    }
 )
 #========================================== PASSWORD VIEWS ================================================
 
-PASSWORD_RESET_REQUEST = extend_schema(
+PASSWORD_RESET_REQUEST = dict(
     summary="Solicitar restablecimiento de contraseña",
     tags=["auth"],
     description=(
         "Solicita el restablecimiento de contraseña.\n\n"
         "Por seguridad, no revela si el email existe.\n\n"
-        f"**Code:** `{_MODULE_PATH_PASSWORD}.PasswordResetRequestView`"
     ),
     responses={
-        200: {'description': UserMessages.EMAIL_SENT_IF_EXISTS}
+        200: OpenApiResponse(description=UserMessages.EMAIL_SENT_IF_EXISTS),
+        400: lambda code: response_400(code),
+        429: lambda code: response_429(THROTTLE_HOUR, code),
     }
 )
 
-PASSWORD_RESET_CONFIRM = extend_schema(
+PASSWORD_RESET_CONFIRM = dict(
     summary="Confirmar nueva contraseña",
     tags=["auth"],
     description=(
         "Actualiza la contraseña usando el token de restablecimiento.\n\n"
-        f"**Code:** `{_MODULE_PATH_PASSWORD}.PasswordResetConfirmView`"
     ),
     responses={
-        200: {'description': AuthMessages.CONFIRM_NEW_PASSWORD},
-        400: {'description': UserMessages.TOKEN_INVALID}
+        200: OpenApiResponse(description=AuthMessages.PASSWORD_RESET_SUCCESS),
+        400: lambda code: response_400(code),
+        429: lambda code: response_429(THROTTLE_HOUR, code),
     }
 )
 
+CHANGE_PASSWORD = {
+    "summary": "Cambiar contraseña",
+    "description": (
+        "Permite a usuarios autenticados cambiar su contraseña"
+        "es necesario incluir su contraseña actual."
+    ),
+    "tags": ["auth"],
+    "responses": {
+        200: OpenApiResponse(description=AuthMessages.PASSWORD_RESET_SUCCESS),
+        400: lambda code: response_400(code),
+        401: RESPONSE_401,
+    },
+}
 #========================================== USER VIEWS ================================================
-REGISTRATION = extend_schema(
+REGISTRATION = dict(
     summary="Registrarse/Crear usuario",
     tags=["auth"],
     description=(
         "Crea un nuevo usuario en estado inactivo.\n\n"
         "Se envía un correo de verificación para activar la cuenta.\n\n"
         "Accesible para cualquier usuario (registro público).\n\n"
-        f"**Code:** `{_MODULE_PATH_USER}.UserViewSet_create`"
     ),
     request=UserCreateSerializer,
     responses={
         201: OpenApiResponse(description=UserMessages.USER_CREATED),
+        400: lambda code: response_400(code),
+        409: RESPONSE_409,
+        429: lambda code: response_429(THROTTLE_HOUR, code),
     }
 )
 
-VERIFY_USER = extend_schema(
+VERIFY_USER = dict(
     summary="Verificar Cuenta",
     tags=["auth"],
     description=(
@@ -146,7 +169,6 @@ VERIFY_USER = extend_schema(
         "Confirma la cuenta de un usuario mediante un token enviado por correo electrónico.\n\n"
         "El token se envía como query parameter y se valida para activar la cuenta.\n\n"
         "Este endpoint no requiere autenticación.\n\n"
-        f"**Code:** `{_MODULE_PATH_USER}.confirm_user`"
     ),
     parameters=[
         OpenApiParameter(
@@ -157,25 +179,30 @@ VERIFY_USER = extend_schema(
             required=True
         )
     ],
-    responses=UserResponses.VERIFIED_200
+    responses={
+        200: OpenApiResponse(description=UserMessages.EMAIL_SENT_IF_EXISTS),
+        400: lambda code: response_400(code),
+        429: lambda code: response_429(THROTTLE_HOUR, code),
+    }
 )   
 
-RESEND_TOKEN = extend_schema(
+RESEND_TOKEN = dict(
     summary="Reenviar correo de verificacion",
     tags=["auth"],
     description=(
         "Se re envia al usuario el token para verificar su cuenta (activarla) por correo.\n\n"
         "Pensado para ser utilizado en casos donde al usuario no le llego este correo al crear su cuenta\n\n"
-        f"**Code:** `{_MODULE_PATH_USER}.ResendTokenAPIView`"
     ),
     responses={
-        201: OpenApiResponse(description=UserMessages.USER_CREATED),
+        200: OpenApiResponse(description=UserMessages.VERIFICATION_EMAIL_SENT),
+        400: lambda code: response_400(code),
+        429: lambda code: response_429(THROTTLE_HOUR, code),
     },
     request=RESEND_CONFIRMATION_EMAIL_REQUEST,
     
 )
 
-VERIFY_EMAIL = extend_schema(
+VERIFY_EMAIL = dict(
     summary="Verificar Cuenta/EMAIL",
     tags=["users"],
     description=(
@@ -184,7 +211,6 @@ VERIFY_EMAIL = extend_schema(
         "Confirma la cuenta de un usuario mediante un token enviado por correo electrónico.\n\n"
         "El token se envía como query parameter y se valida para activar la cuenta.\n\n"
         "Este endpoint no requiere autenticación.\n\n"
-        f"**Code:** `{_MODULE_PATH_USER}.VerifyEmailAPIView`"
     ),
     parameters=[
         OpenApiParameter(
@@ -195,5 +221,10 @@ VERIFY_EMAIL = extend_schema(
             required=True
         )
     ],
-    responses=UserResponses.VERIFIED_200
+    responses={
+        200: OpenApiResponse(description=UserMessages.USER_VERIFIED),
+        400: lambda code: response_400(code),
+        404: RESPONSE_404,
+        429: lambda code: response_429(THROTTLE_HOUR, code),
+    }
 )  

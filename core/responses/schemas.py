@@ -1,7 +1,7 @@
 from drf_spectacular.utils import OpenApiResponse
 from rest_framework import status
 
-from core.responses.messages import UserMessages
+from core.responses.messages import AuthMessages, UserMessages
 
 class UserResponses:
     """Schemas de respuesta para documentación"""
@@ -13,8 +13,8 @@ class UserResponses:
     
     VERIFIED_200 = {
         200: OpenApiResponse(description=UserMessages.USER_VERIFIED),
-        400: OpenApiResponse(description=UserMessages.TOKEN_NOT_PROVIDED),
-        401: OpenApiResponse(description=UserMessages.TOKEN_INVALID),
+        400: OpenApiResponse(description=AuthMessages.TOKEN_NOT_PROVIDED),
+        401: OpenApiResponse(description=AuthMessages.TOKEN_INVALID_OR_EXPIRED),
         404: OpenApiResponse(description=UserMessages.USER_NOT_FOUND),
         409: OpenApiResponse(description=UserMessages.USER_ALREADY_VERIFIED)
     }

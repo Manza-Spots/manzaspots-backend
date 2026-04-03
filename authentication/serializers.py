@@ -1,10 +1,12 @@
 # serializers.py
+import re
 from rest_framework import serializers
-from django.contrib.auth.models import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
+
+from core.responses.messages import AuthMessages
 
 User = get_user_model()
 
@@ -12,9 +14,17 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 class SetNewPasswordSerializer(serializers.Serializer):
-    uidb64 = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(min_length=6, write_only=True)
+    uidb64        = serializers.CharField()
+    token         = serializers.CharField()
+    new_password  = serializers.CharField(min_length=6, write_only=True, trim_whitespace=False)
+    confirm_new_password = serializers.CharField(min_length=6, write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_new_password']:
+            raise serializers.ValidationError(
+                {'confirm_new_password': AuthMessages.PASSWORD_MISMATCH}
+            )
+        return attrs
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Serializer que permite autenticación con username o email"""
@@ -48,12 +58,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 })
 
         return super().validate(attrs)
-
-    
 class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer para creación de usuarios con contraseña"""
     password = serializers.CharField(
-        write_only=True, required=True, 
+        write_only=True, required=True,
         validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True, required=True)
     
@@ -63,6 +71,24 @@ class UserCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'email': {'required': True}
         }
+
+    def validate_username(self, value):
+        value = value.strip()  
+
+        if len(value) < 5:
+            raise serializers.ValidationError(
+                "El nombre de usuario debe tener al menos 5 caracteres."
+            )
+        if not re.match(r'^[a-zA-Z0-9_-]+$', value):
+            raise serializers.ValidationError(
+                "El nombre de usuario solo puede contener letras, números, _ y -"
+            )
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError(
+                "Este nombre de usuario ya está en uso."
+            )
+
+        return value
     
     def validate(self, attrs):
         attrs['email'] = attrs['email'].lower().strip()
@@ -76,7 +102,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 "email": "Este email ya está registrado."
             })
         return attrs
-    
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
@@ -91,3 +116,69 @@ class VerifyEmailSerializer(serializers.Serializer):
         max_length=512,
         trim_whitespace=True
     )
+
+from django.contrib.auth.password_validation import validate_password
+from rest_framework import serializers
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_new_password']:
+            raise serializers.ValidationError(
+                {"confirm_new_password": "Las contraseñas nuevas no coinciden."}
+            )
+        if attrs['current_password'] == attrs['new_password']:
+            raise serializers.ValidationError(
+                {"new_password": "La nueva contraseña debe ser diferente a la actual."}
+            )
+        return attrs
+    
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        required=False,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+    password = serializers.CharField(
+        required=False,        
+        write_only=True,
+        style={'input_type': 'password'},
+        trim_whitespace=False,  
+    )
+
+    def validate_email(self, value):
+        return value.lower()
+
+    def validate_username(self, value):
+        return value.lower()
+
+    def validate(self, attrs):
+        password = attrs.get('password')
+        username = attrs.get('username')
+        email    = attrs.get('email')
+
+        if not password:
+            raise serializers.ValidationError(
+                AuthMessages.PASSWORD_REQUIRED
+            )
+
+        if not username and not email:
+            raise serializers.ValidationError(
+                AuthMessages.EMAIL_OR_USERNAME_REQUIRED
+            )
+
+        return attrs

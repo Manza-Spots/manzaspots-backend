@@ -11,8 +11,9 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from django.contrib.auth import authenticate, get_user_model
 from authentication.base import BaseAuthenticationView, BaseJWTView
 from authentication.docs.schemas import LOGIN_SCHEMA, LOGOUT, TOKEN_REFRESH, TOKEN_VERIFY
-from authentication.serializers import CustomTokenObtainPairSerializer
+from authentication.serializers import CustomTokenObtainPairSerializer, LoginSerializer
 from authentication.services import UsersRegisterService
+from core.docs.schema_utils import auto_schema
 from core.services.email_service import ConfirmUserEmail
 from manza_spots.throttling import LoginThrottle
 from rest_framework.views import APIView
@@ -23,15 +24,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.responses.messages import AuthMessages
 from authentication.base import BaseAuthenticationView
 
+from django.contrib.auth import get_user_model
 User = get_user_model()
-_MODULE_PATH = 'auth.views.jwt_views'
 
-
-@LOGIN_SCHEMA
+@auto_schema(**LOGIN_SCHEMA)
 class LoginView(BaseJWTView, GenericAPIView):
     """Vista de login personalizada con soporte para username o email"""
     permission_classes = [AllowAny]
     throttle_classes = [LoginThrottle]
+    serializer_class = LoginSerializer
     sentry_operation_name = "jwt_login"
 
     def post(self, request, *args, **kwargs):
@@ -47,15 +48,13 @@ class LoginView(BaseJWTView, GenericAPIView):
         )
 
     def _jwt_login(self, request, *args, **kwargs):
-        username = request.data.get('username')
-        email = request.data.get('email')
-        password = request.data.get('password')
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if not password:
-            return Response(AuthMessages.PASSWORDL_REQUIRED, status=status.HTTP_400_BAD_REQUEST)
-
-        if not username and not email:
-            return Response(AuthMessages.EMAIL_USERNAMEL_REQUIRED, status=status.HTTP_400_BAD_REQUEST)
+        username = serializer.validated_data.get('username')
+        email    = serializer.validated_data.get('email')
+        password = serializer.validated_data.get('password')
 
         user_obj = None
         try:
@@ -64,7 +63,7 @@ class LoginView(BaseJWTView, GenericAPIView):
             elif username:
                 user_obj = User.objects.get(username=username)
         except User.DoesNotExist:
-            pass  
+            pass
 
         if user_obj and not user_obj.is_active:
             if user_obj.check_password(password):
@@ -74,13 +73,14 @@ class LoginView(BaseJWTView, GenericAPIView):
                         reason='Intento de login, Cuenta INACTIVA',
                         ip=request.META.get('REMOTE_ADDR')
                     )
-                    confirm_url = UsersRegisterService.get_confirmation_url(user_obj, request)
+                    confirm_url = UsersRegisterService.get_confirmation_url(user_obj)
                     ConfirmUserEmail.send_email(
                         to_email=user_obj.email,
                         confirm_url=confirm_url,
                         nombre=user_obj.username
                     )
                     self.logger.info(f'Re-enviado email de confirmación a {user_obj.username}')
+                    return Response(AuthMessages.ACCOUNT_CONFIRMATION_REQUIRED, status=status.HTTP_401_UNAUTHORIZED)
                 else:
                     self.log_auth_event(
                         'jwt_login_failed', user=None, success=False,
@@ -107,17 +107,16 @@ class LoginView(BaseJWTView, GenericAPIView):
         self.log_auth_event('jwt_login_success', user=user, method='username_email')
         return Response(response_data, status=status.HTTP_200_OK)
 
-
-@TOKEN_REFRESH
+@auto_schema(**TOKEN_REFRESH)
 class TokenRefreshView(TokenRefreshView):
     pass
 
 
-@TOKEN_VERIFY
+@auto_schema(**TOKEN_VERIFY)
 class TokenVerifyView(TokenVerifyView):
     pass
 
 
-@LOGOUT
+@auto_schema(**LOGOUT)
 class LogoutView(TokenBlacklistView):
     pass

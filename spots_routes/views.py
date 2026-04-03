@@ -146,7 +146,7 @@ class SpotViewSet(ViewSetSentryMixin,  viewsets.ModelViewSet):
         """Asignar usuario y estado inicial al crear"""
         serializer.save(
             user=self.request.user,
-            status_id=models.get_default_pending()
+            pending = SpotStatusReview.objects.get(key='PENDING')
         )
 
     @extend_schema(
