@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from authentication.docs.schemas import REGISTRATION, RESEND_TOKEN, VERIFY_EMAIL, VERIFY_USER
 from authentication.serializers import ResendTokenSerializer, UserCreateSerializer, VerifyEmailSerializer
+from core.docs.schema_utils import auto_schema
 from core.mixins import SentryErrorHandlerMixin, ViewSetSentryMixin
 from manza_spots.throttling import RegisterThrottle, SensitiveOperationThrottle
 from authentication.docs.request import RESEND_CONFIRMATION_EMAIL_REQUEST
-from core.responses.messages import UserMessages
+from core.responses.messages import AuthMessages, UserMessages
 from core.services.email_service import ConfirmUserEmail
 from django.conf import settings
 from django.core.mail import send_mail
@@ -25,10 +26,7 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 User = get_user_model()
 
-
-_MODULE_PATH = __name__
-
-@REGISTRATION
+@auto_schema(**REGISTRATION)
 class RegistrationAPIView(SentryErrorHandlerMixin,CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = UserCreateSerializer
@@ -55,7 +53,7 @@ class RegistrationAPIView(SentryErrorHandlerMixin,CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save(is_active=False)  
 
-        confirm_url= UsersRegisterService.get_confirmation_url(user, request)                    
+        confirm_url= UsersRegisterService.get_confirmation_url(user)                    
 
         ConfirmUserEmail.send_email(
             to_email=user.email, 
@@ -71,7 +69,7 @@ class RegistrationAPIView(SentryErrorHandlerMixin,CreateAPIView):
             headers=headers
         )
     
-@RESEND_TOKEN
+@auto_schema(**RESEND_TOKEN)
 class ResendTokenAPIView(SentryErrorHandlerMixin, CreateAPIView):
     permission_classes = [AllowAny]
     throttle_classes =  [SensitiveOperationThrottle]
@@ -112,7 +110,7 @@ class ResendTokenAPIView(SentryErrorHandlerMixin, CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        confirm_url= UsersRegisterService.get_confirmation_url(user, request)                    
+        confirm_url= UsersRegisterService.get_confirmation_url(user)                    
         
         ConfirmUserEmail.send_email(
             to_email=user.email, 
@@ -127,7 +125,7 @@ class ResendTokenAPIView(SentryErrorHandlerMixin, CreateAPIView):
             status=status.HTTP_200_OK
         )
 
-@VERIFY_EMAIL
+@auto_schema(**VERIFY_EMAIL)
 class VerifyEmailAPIView(SentryErrorHandlerMixin, APIView):
     permission_classes = [AllowAny]
     throttle_classes = [SensitiveOperationThrottle]
@@ -143,7 +141,7 @@ class VerifyEmailAPIView(SentryErrorHandlerMixin, APIView):
 
         if not data:
             return Response(
-                {"error": UserMessages.TOKEN_INVALID},
+                {"error": AuthMessages.TOKEN_INVALID_OR_EXPIRED},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -181,7 +179,7 @@ class VerifyEmailAPIView(SentryErrorHandlerMixin, APIView):
         # CASO 2: Cambio de email
         if User.objects.filter(email=new_email).exclude(id=user_id).exists():
             return Response(
-                {"error": UserMessages.EMAIL_NOT_AVAIBLE},
+                {"error": UserMessages.EMAIL_ALREADY_IN_USE},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -193,6 +191,6 @@ class VerifyEmailAPIView(SentryErrorHandlerMixin, APIView):
         )
 
         return Response(
-            {"message": UserMessages.NEW_EMAIL},
+            {"message": UserMessages.EMAIL_UPDATED},
             status=status.HTTP_200_OK
         )
