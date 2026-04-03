@@ -140,7 +140,8 @@ class PasswordResetConfirmViewTests(TestCase):
         response = self.client.post(self.url, {
             'uidb64': 'fake_uid_base64',
             'token': 'fake_valid_token',
-            'new_password': 'newpass123'
+            'new_password': 'newpass123',
+            'confirm_new_password': 'newpass123'
         })
         self.assertEqual(response.status_code, 200)
         mock_confirm_reset.assert_called_once()
