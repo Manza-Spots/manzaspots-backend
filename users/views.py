@@ -304,7 +304,6 @@ class EmailUpdateAPIView(SentryErrorHandlerMixin, UpdateAPIView):
 
         confirm_url = UsersRegisterService.get_confirmation_url(
             user=user,
-            request=request,
             new_email=email
         )
 
