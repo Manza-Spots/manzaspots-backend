@@ -2,7 +2,10 @@ import re
 import unicodedata
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from django.contrib.auth import get_user_model
-
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 User = get_user_model()
 
 class CustomFacebookOAuth2Adapter(FacebookOAuth2Adapter):
@@ -94,3 +97,35 @@ class CustomFacebookOAuth2Adapter(FacebookOAuth2Adapter):
         
         import time
         return f"{base_username}{int(time.time())}"
+    
+
+
+class GoogleIDTokenAdapter(GoogleOAuth2Adapter):
+    """
+    Verifica el ID Token de Google localmente (sin llamar a userinfo).
+    Extrae los claims del JWT directamente.
+    """
+
+    def complete_login(self, request, app, token, **kwargs):
+        id_token_str = token.token
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                id_token_str,
+                google_requests.Request(),
+                app.client_id  
+            )
+        except ValueError as e:
+            raise OAuth2Error(f"ID token inválido: {e}")
+
+        extra_data = {
+            'id': idinfo['sub'],
+            'email': idinfo.get('email'),
+            'verified_email': idinfo.get('email_verified', False),
+            'name': idinfo.get('name'),
+            'given_name': idinfo.get('given_name'),
+            'family_name': idinfo.get('family_name'),
+            'picture': idinfo.get('picture'),
+        }
+
+        return self.get_provider().sociallogin_from_response(request, extra_data)
