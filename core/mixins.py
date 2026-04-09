@@ -1,6 +1,6 @@
 # mixins.py
 import logging
-from oauthlib.oauth2 import OAuth2Error
+from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 import sentry_sdk
 from rest_framework import status
 from rest_framework.response import Response
