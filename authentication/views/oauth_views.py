@@ -9,8 +9,9 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from authentication.base import BaseOAuthView
 from authentication.docs.schemas import FACEBOOK, GOOGLE
+from authentication.serializers import GoogleIDTokenSerializer
 from authentication.services import AuthenticationService
-from authentication.adapters import CustomFacebookOAuth2Adapter
+from authentication.adapters import CustomFacebookOAuth2Adapter, GoogleIDTokenAdapter
 from authentication.docs.request import GOOGLE_LOGIN_REQUEST, FACEBOOK_LOGIN_REQUEST
 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 
@@ -22,8 +23,9 @@ User = get_user_model()
 
 @auto_schema(**GOOGLE)
 class GoogleLoginView(BaseOAuthView, SocialLoginView):
-    adapter_class = GoogleOAuth2Adapter
+    adapter_class = GoogleIDTokenAdapter    
     client_class = OAuth2Client
+    serializer_class = GoogleIDTokenSerializer 
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
     sentry_operation_name = "google_authentication"
     

@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter, OpenApiExample
 from authentication.docs.request import GOOGLE_LOGIN_REQUEST, RESEND_CONFIRMATION_EMAIL_REQUEST
 from authentication.docs.response import JWT_SUCCES_RESPONSE
-from authentication.serializers import UserCreateSerializer
+from authentication.serializers import GoogleIDTokenSerializer, UserCreateSerializer
 from core.docs.response import RESPONSE_400_OAUTH, RESPONSE_401, RESPONSE_404, RESPONSE_409, response_400, response_429
 from core.responses.messages import AuthMessages, UserMessages
 from core.responses.schemas import UserResponses
@@ -74,11 +74,12 @@ GOOGLE = dict(
     summary="Autenticación con Google",
     tags=["auth"],
     description=(
+        "El endpoint espera recibir el id token"
         "Autentica o registra usuarios mediante Google.\n\n"
         "El email se verifica automáticamente.\n\n"
     ),
 
-    request=GOOGLE_LOGIN_REQUEST,
+    request=GoogleIDTokenSerializer,
     responses={
         200: JWT_SUCCES_RESPONSE,
         400: RESPONSE_400_OAUTH,

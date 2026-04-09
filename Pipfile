@@ -15,7 +15,6 @@ sentry-sdk = {extras = ["django"], version = "*"}
 python-decouple = "*"
 requests = "*"
 rich = "*"
-google-auth = "*"
 dj-rest-auth = {extras = ["with_social"], version = "*"}
 psycopg = "*"
 psycopg-binary = "*"
@@ -30,6 +29,8 @@ django-allauth = "*"
 apscheduler = "*"
 psycopg2-binary = "*"
 sqlalchemy = "*"
+google-auth = "*"
+async-timeout = "*"
 
 [dev-packages]
 
