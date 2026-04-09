@@ -5,6 +5,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
+from dj_rest_auth.registration.serializers import SocialLoginSerializer
 
 from core.responses.messages import AuthMessages
 
@@ -182,3 +183,18 @@ class LoginSerializer(serializers.Serializer):
             )
 
         return attrs
+    
+
+class GoogleIDTokenSerializer(SocialLoginSerializer):
+    id_token = serializers.CharField(required=True)
+    access_token = serializers.CharField(required=False, allow_blank=True)
+    code = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        id_token_value = attrs.get('id_token')
+        if not id_token_value:
+            raise serializers.ValidationError({'id_token': 'Este campo es requerido.'})
+        
+        attrs['access_token'] = id_token_value
+        
+        return super().validate(attrs)
