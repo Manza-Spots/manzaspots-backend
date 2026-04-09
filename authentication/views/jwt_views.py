@@ -12,7 +12,7 @@ from django.contrib.auth import authenticate, get_user_model
 from authentication.base import BaseAuthenticationView, BaseJWTView
 from authentication.docs.schemas import LOGIN_SCHEMA, LOGOUT, TOKEN_REFRESH, TOKEN_VERIFY
 from authentication.serializers import CustomTokenObtainPairSerializer, LoginSerializer
-from authentication.services import UsersRegisterService
+from authentication.services import LoginService, UsersRegisterService
 from core.docs.schema_utils import auto_schema
 from core.services.email_service import ConfirmUserEmail
 from manza_spots.throttling import LoginThrottle
@@ -52,55 +52,28 @@ class LoginView(BaseJWTView, GenericAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        username = serializer.validated_data.get('username')
-        email    = serializer.validated_data.get('email')
-        password = serializer.validated_data.get('password')
+        data     = serializer.validated_data
+        username = data.get('username')
+        email    = data.get('email')
+        password = data.get('password')
+        ip       = request.META.get('REMOTE_ADDR')
 
-        user_obj = None
-        try:
-            if email:
-                user_obj = User.objects.get(email=email)
-            elif username:
-                user_obj = User.objects.get(username=username)
-        except User.DoesNotExist:
-            pass
+        user_obj = LoginService.get_user_by_credential(username=username, email=email)
 
-        if user_obj and not user_obj.is_active:
-            if user_obj.check_password(password):
-                if user_obj.last_login is None:
-                    self.log_auth_event(
-                        'jwt_login_failed', user=None, success=False,
-                        reason='Intento de login, Cuenta INACTIVA',
-                        ip=request.META.get('REMOTE_ADDR')
-                    )
-                    confirm_url = UsersRegisterService.get_confirmation_url(user_obj)
-                    ConfirmUserEmail.send_email(
-                        to_email=user_obj.email,
-                        confirm_url=confirm_url,
-                        nombre=user_obj.username
-                    )
-                    self.logger.info(f'Re-enviado email de confirmación a {user_obj.username}')
-                    return Response(AuthMessages.ACCOUNT_CONFIRMATION_REQUIRED, status=status.HTTP_401_UNAUTHORIZED)
-                else:
-                    self.log_auth_event(
-                        'jwt_login_failed', user=None, success=False,
-                        reason='Intento de login, Cuenta BANEADA',
-                        ip=request.META.get('REMOTE_ADDR')
-                    )
-            return Response(AuthMessages.CREDENTIALS_INVALID, status=status.HTTP_401_UNAUTHORIZED)
+        if LoginService.check_provider_only_account(user_obj):
+            return Response(AuthMessages.USE_PROVIDER_OR_SET_PASSWORD, status=status.HTTP_401_UNAUTHORIZED)
+        
+        inactive = LoginService.check_inactive_user(user_obj, password, ip) if user_obj else None
+        if inactive:
+            self.log_auth_event('jwt_login_failed', user=None, success=False,
+                                reason=inactive['reason'], ip=ip)
+            return Response(inactive['response'], status=status.HTTP_401_UNAUTHORIZED)
 
-        user = None
-        if email and user_obj:
-            user = authenticate(request=request, username=user_obj.username, password=password)
-        if not user and username:
-            user = authenticate(request=request, username=username, password=password)
-
+        user = LoginService.authenticate_user(request, user_obj=user_obj,
+                                            username=username, password=password)
         if not user:
-            self.log_auth_event(
-                'jwt_login_failed', user=None, success=False,
-                reason='Credenciales inválidas',
-                ip=request.META.get('REMOTE_ADDR')
-            )
+            self.log_auth_event('jwt_login_failed', user=None, success=False,
+                                reason='Credenciales inválidas', ip=ip)
             return Response(AuthMessages.CREDENTIALS_INVALID, status=status.HTTP_401_UNAUTHORIZED)
 
         response_data = self.generate_token_response(user)
