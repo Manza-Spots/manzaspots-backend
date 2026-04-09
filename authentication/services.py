@@ -2,7 +2,7 @@
 Servicios de lógica de negocio para autenticación.
 TODA la lógica de negocio va aquí, NO en las vistas.
 """
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -12,8 +12,10 @@ from rest_framework.exceptions import ValidationError
 import logging
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from itsdangerous import URLSafeTimedSerializer
-
+from decouple import config
 from core.services.email_service import PasswordResetEmail
+
+FRONTEND_URL = config('FRONTEND_URL')
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -153,7 +155,27 @@ class UsersRegisterService:
             return None
 
     @staticmethod
-    def get_confirmation_url(user, request, new_email=None):
+    def get_confirmation_url(user, new_email=None):
         token = UsersRegisterService.generate_email_token(user, new_email)
-        verify_url = f"/users/verify-email?token={token}"
-        return request.build_absolute_uri(verify_url)
+        return f"{FRONTEND_URL}/users/verify-email?token={token}"
+
+
+class ChangePasswordService:
+
+    @staticmethod
+    def change_password(user, current_password: str, new_password: str) -> None:
+        """
+        Valida la contraseña actual y establece la nueva.
+        Lanza ValidationError si la contraseña actual es incorrecta.
+        """
+        authenticated = authenticate(
+            username=user.get_username(),
+            password=current_password
+        )
+        if authenticated is None:
+            raise ValidationError(
+                {"current_password": "La contraseña actual es incorrecta."}
+            )
+
+        user.set_password(new_password)
+        user.save(update_fields=['password'])

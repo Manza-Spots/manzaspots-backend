@@ -1,8 +1,8 @@
 import os
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.indexes import GistIndex
 from django.core.validators import FileExtensionValidator
-from django.contrib.auth import get_user_model
 
 from core.models import BaseModel
 from core.utils.upload_image import (
@@ -11,8 +11,9 @@ from core.utils.upload_image import (
     spot_thumbnail_path,
 )
 
-User = get_user_model()
-
+# from django.contrib.auth import get_user_model
+# User = get_user_model()
+User = settings.AUTH_USER_MODEL
 #----------------------------------- SPOTS --------------------------------------------
 
 class SpotStatusReview(models.Model):
@@ -50,7 +51,7 @@ class Spot(BaseModel):
         help_text="Formatos: JPG, PNG, WEBP"
     )
     location = models.PointField(srid=4326)
-    status = models.ForeignKey(SpotStatusReview, on_delete=models.CASCADE, related_name = 'spots', default=get_default_pending)
+    status = models.ForeignKey(SpotStatusReview, on_delete=models.CASCADE, related_name = 'spots', null=True, blank=True)
     reject_reason = models.TextField(null=True, blank=True)
     reviewed_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_reviewed', blank=True, null=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)

@@ -9,24 +9,23 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from authentication.base import BaseOAuthView
 from authentication.docs.schemas import FACEBOOK, GOOGLE
+from authentication.serializers import GoogleIDTokenSerializer
 from authentication.services import AuthenticationService
-from authentication.adapters import CustomFacebookOAuth2Adapter
-from django.contrib.auth import get_user_model
+from authentication.adapters import CustomFacebookOAuth2Adapter, GoogleIDTokenAdapter
 from authentication.docs.request import GOOGLE_LOGIN_REQUEST, FACEBOOK_LOGIN_REQUEST
-from authentication.docs.response import LOGIN_RESPONSE
 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 
+from core.docs.schema_utils import auto_schema
 from core.responses.messages import UserMessages
 
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
-_MODULE_PATH = 'auth.views.oauth_views'
-
-
-@GOOGLE
+@auto_schema(**GOOGLE)
 class GoogleLoginView(BaseOAuthView, SocialLoginView):
-    adapter_class = GoogleOAuth2Adapter
+    adapter_class = GoogleIDTokenAdapter    
     client_class = OAuth2Client
+    serializer_class = GoogleIDTokenSerializer 
     callback_url = 'http://localhost:8000/accounts/google/login/callback/'
     sentry_operation_name = "google_authentication"
     
@@ -39,7 +38,7 @@ class GoogleLoginView(BaseOAuthView, SocialLoginView):
                 'component': 'GoogleLoginView',
                 'provider': 'google'
             },
-            success_message={'detail': UserMessages.LOGIN},
+            success_message={'detail': UserMessages.LOGIN_SUCCESS},
             success_status=status.HTTP_200_OK
         )
     
@@ -84,7 +83,7 @@ class GoogleLoginView(BaseOAuthView, SocialLoginView):
             return response
 
 
-@FACEBOOK
+@auto_schema(**FACEBOOK)
 class FacebookLoginView(BaseOAuthView, SocialLoginView):
     adapter_class = CustomFacebookOAuth2Adapter
     client_class = OAuth2Client
@@ -99,7 +98,7 @@ class FacebookLoginView(BaseOAuthView, SocialLoginView):
                 'component': 'FacebookLoginView',
                 'provider': 'facebook'
             },
-            success_message={'detail': UserMessages.LOGIN},
+            success_message={'detail': UserMessages.LOGIN_SUCCESS},
             success_status=status.HTTP_200_OK
         )
     

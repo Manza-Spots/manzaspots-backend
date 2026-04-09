@@ -1,5 +1,6 @@
 # mixins.py
 import logging
+from oauthlib.oauth2 import OAuth2Error
 import sentry_sdk
 from rest_framework import status
 from rest_framework.response import Response
@@ -8,6 +9,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DatabaseError, IntegrityError
 from smtplib import SMTPException
 from requests.exceptions import RequestException, Timeout, ConnectionError
+
+from core.responses.messages import ErrorMessages
 
 
 class SentryErrorHandlerMixin:
@@ -81,9 +84,12 @@ class SentryErrorHandlerMixin:
             
             # Si retorna data, crear Response
             return Response(
-                result or success_message or {'detail': 'Operación exitosa'},
+                result or success_message or {'detail':ErrorMessages.DEFAULT_SUCCESS},
                 status=success_status
             )
+
+        except OAuth2Error as e:
+            return self._handle_oauth_error(e, request, tags, extra)
         
         # Errores de validación (NO enviar a Sentry por defecto)
         except ValidationError as e:
@@ -119,6 +125,43 @@ class SentryErrorHandlerMixin:
             return self._handle_unexpected_error(e, request, tags, extra)
     
     # Métodos internos de manejo
+    def _handle_oauth_error(self, exception, request, tags, extra):
+        """Manejo de errores de OAuth (esperados, no críticos)"""
+        # Loguear en auth.log
+        if hasattr(self, 'log_auth_event'):
+            try:
+                self.log_auth_event(
+                    'google_oauth_error',
+                    user=None,
+                    success=False,
+                    provider=tags.get('provider', 'unknown'),
+                    error_type='OAuth2Error',
+                    error_message=str(exception),
+                    ip=request.META.get('REMOTE_ADDR')
+                )
+            except Exception:
+                pass  # No fallar si el log falla
+        
+        # Log estándar
+        self.logger.warning(
+            f"OAuth error en {self.__class__.__name__}: {str(exception)}",
+            extra=extra,
+            exc_info=True
+        )
+        
+        # Enviar a Sentry como WARNING
+        self._capture_to_sentry(
+            exception,
+            level="warning",
+            tags={**tags, 'error_type': 'oauth'},
+            extra=extra,
+            request=request
+        )
+        
+        return Response(
+            {'detail': ErrorMessages.OAUTH_ERROR},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     def _handle_validation_error(self, exception, tags, extra):
         """Manejo de ValidationError de DRF"""
@@ -146,7 +189,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Datos inválidos', 'errors': exception.message_dict if hasattr(exception, 'message_dict') else str(exception)},
+            {'detail': ErrorMessages.INVALID_DATA, 'errors': exception.message_dict if hasattr(exception, 'message_dict') else str(exception)},
             status=status.HTTP_400_BAD_REQUEST
         )
     
@@ -160,13 +203,13 @@ class SentryErrorHandlerMixin:
         # Determinar mensaje según el error
         error_msg = str(exception).lower()
         if 'unique' in error_msg or 'duplicate' in error_msg:
-            message = 'El recurso ya existe'
+            message = ErrorMessages.RESOURCE_EXISTS
             status_code = status.HTTP_409_CONFLICT
         elif 'foreign key' in error_msg:
-            message = 'Referencia inválida'
+            message = ErrorMessages.INVALID_REFERENCE
             status_code = status.HTTP_400_BAD_REQUEST
         else:
-            message = 'Error de integridad de datos'
+            message = ErrorMessages.DATA_INTEGRITY_ERROR
             status_code = status.HTTP_400_BAD_REQUEST
         
         return Response(
@@ -191,7 +234,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Error del sistema. Por favor intenta más tarde.'},
+            {'detail': ErrorMessages.DATABASE_ERROR},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
@@ -213,7 +256,7 @@ class SentryErrorHandlerMixin:
         
         # No fallar la operación por email
         return Response(
-            {'detail': 'Operación completada (notificación pendiente)'},
+            {'detail': ErrorMessages.EMAIL_NOTIFICATION_PENDING},
             status=status.HTTP_200_OK
         )
     
@@ -234,7 +277,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'El servicio tardó demasiado. Por favor intenta nuevamente.'},
+            {'detail': ErrorMessages.SERVICE_TIMEOUT},
             status=status.HTTP_504_GATEWAY_TIMEOUT
         )
     
@@ -255,7 +298,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Servicio no disponible. Por favor intenta más tarde.'},
+            {'detail': ErrorMessages.SERVICE_UNAVAILABLE},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
     
@@ -276,7 +319,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Error comunicándose con servicio externo.'},
+            {'detail': ErrorMessages.EXTERNAL_API_ERROR},
             status=status.HTTP_502_BAD_GATEWAY
         )
     
@@ -297,7 +340,7 @@ class SentryErrorHandlerMixin:
         )
         
         return Response(
-            {'detail': 'Error inesperado. Revisa los logs'},
+            {'detail': ErrorMessages.UNEXPECTED_ERROR},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
