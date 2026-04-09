@@ -13,7 +13,8 @@ import logging
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from itsdangerous import URLSafeTimedSerializer
 from decouple import config
-from core.services.email_service import PasswordResetEmail
+from core.responses.messages import AuthMessages
+from core.services.email_service import ConfirmUserEmail, PasswordResetEmail
 
 FRONTEND_URL = config('FRONTEND_URL')
 
@@ -179,3 +180,60 @@ class ChangePasswordService:
 
         user.set_password(new_password)
         user.save(update_fields=['password'])
+
+
+
+class LoginService:
+
+    @staticmethod
+    def get_user_by_credential(*, username=None, email=None):
+        """Busca el user por email o username. Retorna None si no existe."""
+        try:
+            if email:
+                return User.objects.get(email=email)
+            if username:
+                return User.objects.get(username=username)
+        except User.DoesNotExist:
+            return None
+
+    @staticmethod
+    def check_inactive_user(user, password, request_ip) -> dict | None:
+        """
+        Si el user está inactivo y la contraseña es correcta,
+        retorna un dict con 'reason' y 'response'.
+        Retorna None si no aplica.
+        """
+        if user.is_active or not user.check_password(password):
+            return None
+
+        if user.last_login is None:
+            confirm_url = UsersRegisterService.get_confirmation_url(user)
+            ConfirmUserEmail.send_email(
+                to_email=user.email,
+                confirm_url=confirm_url,
+                nombre=user.username,
+            )
+            return {
+                'reason': 'Cuenta INACTIVA (sin confirmar)',
+                'response': AuthMessages.ACCOUNT_CONFIRMATION_REQUIRED,
+            }
+
+        return {
+            'reason': 'Cuenta BANEADA',
+            'response': AuthMessages.CREDENTIALS_INVALID,
+        }
+
+    @staticmethod
+    def authenticate_user(request, *, user_obj=None, username=None, password):
+        """Intenta autenticar. Prueba primero por user_obj, luego por username."""
+        user = None
+        if user_obj:
+            user = authenticate(request=request, username=user_obj.username, password=password)
+        if not user and username:
+            user = authenticate(request=request, username=username, password=password)
+        return user
+    
+    @staticmethod
+    def check_provider_only_account(user) -> bool:
+        """True si el usuario no tiene contraseña utilizable (registrado via provider)."""
+        return user is not None and not user.has_usable_password()

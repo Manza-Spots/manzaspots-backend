@@ -54,6 +54,7 @@ class AuthMessages:
     VERIFICATION_EXPIRED = "El enlace de verificación ha expirado."
     PASSWORD_RESET_TOKEN_INVALID = "El token de recuperación es inválido o expiró."
 
+    USE_PROVIDER_OR_SET_PASSWORD ="inicia sesión con google y establece una contraseña para poder iniciar sesión con correo y contraseña"
 
 class ValidationMessages:
     """Mensajes de validación genéricos"""
