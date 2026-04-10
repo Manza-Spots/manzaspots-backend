@@ -329,7 +329,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'access_type': 'online',
         },
         'APP': {
-            'client_id': config('ID_GOOGLE_CLIENT'),
+            'client_id': config('ID_GOOGLE_CLIENT_WEB'),
             'secret': config('SECRET_GOOGLE_CLIENT'),
             'key': ''
         }
@@ -350,8 +350,13 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
-GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT')
-
+GOOGLE_CLIENT_IDS = [
+    config('ID_GOOGLE_CLIENT_WEB'),
+    config('ID_GOOGLE_CLIENT_ANDROID'),
+    config('ID_GOOGLE_CLIENT_IOS'),
+]
+GOOGLE_OAUTH2_CLIENT_ID = config('ID_GOOGLE_CLIENT_WEB')
+GOOGLE_OAUTH2_ALLOWED_CLIENT_IDS = GOOGLE_CLIENT_IDS
 #--------------------------------- DJANGO GEO ------------------------------------------------
 #Si se quiere ejecutar de forma local desde una maquina windows, es necesario tener instalado OSGeo4W en el disco.
 #No es necesario si se ejecutara desde mac, linux o docker

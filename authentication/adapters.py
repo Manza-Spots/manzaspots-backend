@@ -4,6 +4,7 @@ from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from django.contrib.auth import get_user_model
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from google.oauth2 import id_token
+from django.conf import settings
 from google.auth.transport import requests as google_requests
 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 User = get_user_model()
@@ -105,6 +106,28 @@ class GoogleIDTokenAdapter(GoogleOAuth2Adapter):
     Verifica el ID Token de Google localmente (sin llamar a userinfo).
     Extrae los claims del JWT directamente.
     """
+    def get_client_id(self):
+        return settings.GOOGLE_OAUTH2_CLIENT_ID
+    
+    def validate_token(self, token):
+        """Valida que el token venga de cualquiera de nuestras apps."""
+        import google.auth.transport.requests
+        from google.oauth2 import id_token
+        
+        allowed_ids = settings.GOOGLE_OAUTH2_ALLOWED_CLIENT_IDS
+        
+        for client_id in allowed_ids:
+            try:
+                idinfo = id_token.verify_oauth2_token(
+                    token,
+                    google.auth.transport.requests.Request(),
+                    client_id
+                )
+                return idinfo
+            except ValueError:
+                continue
+        
+        raise ValueError("Token no válido para ningún client_id registrado")
 
     def complete_login(self, request, app, token, **kwargs):
         id_token_str = token.token

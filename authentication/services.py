@@ -106,10 +106,9 @@ class PasswordResetService:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = PasswordResetTokenGenerator().make_token(user)
             
-            reset_path = f"/auth/reset-password/{uid}/{token}/"
-            reset_url = request.build_absolute_uri(reset_path)
+            reset_path = f"{FRONTEND_URL}/auth/reset/password/confirm/{uid}/{token}/"
             
-            PasswordResetEmail.send_email(user.email, reset_url = reset_url, nombre = user.username)
+            PasswordResetEmail.send_email(user.email, reset_url = reset_path, nombre = user.username)
             
             logger.info(f"Restablecimiento de contraseña enviado a: {email}")
             
