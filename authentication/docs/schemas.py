@@ -4,7 +4,6 @@ from authentication.docs.response import JWT_SUCCES_RESPONSE
 from authentication.serializers import GoogleIDTokenSerializer, UserCreateSerializer
 from core.docs.response import RESPONSE_400_OAUTH, RESPONSE_401, RESPONSE_404, RESPONSE_409, response_400, response_429
 from core.responses.messages import AuthMessages, UserMessages
-from core.responses.schemas import UserResponses
 
 THROTTLE_HOUR = 3600
 

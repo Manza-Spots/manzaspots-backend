@@ -9,7 +9,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DatabaseError, IntegrityError
 from smtplib import SMTPException
 from requests.exceptions import RequestException, Timeout, ConnectionError
-
+from django.utils.html import format_html
+from django.db import transaction
 from core.responses.messages import ErrorMessages
 
 
@@ -445,3 +446,40 @@ class OwnerCheckMixin:
             return int(self.kwargs.get('pk')) == self.request.user.id
         except (ValueError, TypeError, AttributeError):
             return False
+        
+class SoftDeleteAdminMixin:
+    """
+    Mixin para que el admin vea todos los registros
+    incluyendo los eliminados con soft delete.
+    """
+
+    def get_queryset(self, request):
+        # Usa all_objects para saltarse el filtro del SoftDeleteManager
+        return self.model.all_objects.all()
+
+    # Columna visual para saber el estado del registro
+    def estado_registro(self, obj):
+        if obj.is_deleted:
+            return format_html(
+                '<span style="color: red; font-weight: bold;">🗑 Eliminado ({})</span>',
+                obj.deleted_at.strftime("%d/%m/%Y %H:%M")
+            )
+        if not obj.is_active:
+            return format_html('<span style="color: orange;">⚠ Inactivo</span>')
+        return format_html('<span style="color: green;">✓ Activo</span>')
+
+    estado_registro.short_description = "Estado"
+
+    # Acciones desde el admin
+    actions = ['action_restore', 'action_deactivate']
+
+    def action_restore(self, request, queryset):
+        queryset.update(deleted_at=None, is_active=True)
+        self.message_user(request, f"{queryset.count()} registro(s) restaurados.")
+    action_restore.short_description = "Restaurar registros seleccionados"
+
+    def action_deactivate(self, request, queryset):
+        queryset.update(is_active=False)
+        self.message_user(request, f"{queryset.count()} registro(s) desactivados.")
+    action_deactivate.short_description = "Desactivar registros seleccionados"
+

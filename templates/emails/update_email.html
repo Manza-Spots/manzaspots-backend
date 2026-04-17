@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirma tu nuevo correo</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f4f6f8; margin:0; padding:0; }
+    .container { max-width:640px; margin:28px auto; background:#ffffff; border-radius:8px; box-shadow:0 8px 24px rgba(12,20,30,0.08); overflow:hidden; }
+    .header { background:#0b66ff; color:#fff; padding:20px 28px; }
+    .header h1 { margin:0; font-size:20px; }
+    .content { padding:28px; color:#111827; line-height:1.5; }
+    .btn { display:inline-block; text-decoration:none; padding:12px 20px; border-radius:6px; background:#0b66ff; color:#ffffff !important; font-weight:600; margin-top:14px; }
+    .small { font-size:13px; color:#6b7280; margin-top:18px; }
+    .footer { padding:18px 28px; font-size:12px; color:#9ca3af; text-align:center; background:#fbfdff; }
+    a.fallback { word-break:break-all; color:#0b66ff; }
+    @media (max-width:420px){ .container{ margin:12px; } .header h1{ font-size:18px } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Confirma tu nuevo correo</h1>
+    </div>
+
+    <div class="content">
+      <p>Hola <strong>{{ nombre }}</strong>,</p>
+
+      <p>Recibimos una solicitud para cambiar el correo electrónico asociado a tu cuenta.</p>
+
+      <p>Para confirmar que este nuevo correo te pertenece y completar el cambio, haz clic en el siguiente botón:</p>
+
+      <p style="text-align:center;">
+        <a href="{{ confirm_url }}" class="btn">Confirmar nuevo correo</a>
+      </p>
+
+      <p class="small">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+      <p><a class="fallback" href="{{ confirm_url }}">{{ confirm_url }}</a></p>
+
+      <p class="small">
+        Si tú no solicitaste este cambio, ignora este mensaje y tu correo no será modificado.
+        El enlace expirará automáticamente por seguridad.
+      </p>
+    </div>
+
+    <div class="footer">
+      <div>Soporte • Tu aplicación</div>
+      <div style="margin-top:6px;">Si necesitas ayuda, responde a este correo.</div>
+    </div>
+  </div>
+</body>
+</html>
