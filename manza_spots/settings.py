@@ -33,14 +33,54 @@ if not config('DEBUG', default=True, cast=bool):
 #----------------------------- CARPETAS RELEVANTES ----------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# ─── ESTÁTICOS (siempre igual) ────────────────────────────────────
+STATIC_URL  = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 LOG_DIR = BASE_DIR / 'logs'
 LOG_DIR.mkdir(exist_ok=True)
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# ========================================== STORAGE ==========================================
+USE_R2 = config('USE_R2', default=False, cast=bool)
+
+if USE_R2:
+    # ==== Cloudflare R2 ====
+    AWS_ACCESS_KEY_ID = config('R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = config('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = config('R2_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = f"https://{config('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+    AWS_S3_REGION_NAME = 'auto'
+    AWS_S3_CUSTOM_DOMAIN = config('R2_PUBLIC_URL').replace('https://', '')
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+else:
+    # ==== Local ====
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 
 #----------------------------- APPS INSTALADAS ----------------------------------------------------
@@ -59,6 +99,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_filters',
     'rest_framework_gis',
+    'storages',
     
     # JWT apps
     'rest_framework',
@@ -502,11 +543,6 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-#================================================ AUTH BACKEND =====================================================
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
 
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
@@ -531,4 +567,3 @@ AUTHENTICATION_BACKENDS = [
 
 #Obligamos a django a crear los loggins
 logging.config.dictConfig(settings.LOGGING)
-

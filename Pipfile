@@ -31,6 +31,8 @@ psycopg2-binary = "*"
 sqlalchemy = "*"
 google-auth = "*"
 async-timeout = "*"
+django-storages = "*"
+boto3 = "*"
 
 [dev-packages]
 
