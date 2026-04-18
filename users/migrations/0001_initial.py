@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
             name='UserProfile',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('profile_thum_path', models.ImageField(blank=True, help_text='Formatos: JPG, PNG, WEBP', null=True, upload_to=core.utils.upload_image.user_thumbnail_path, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])])),
+                ('profile_thum_path', models.ImageField(blank=True, help_text='Formatos: JPG, PNG, WEBP', null=True, upload_to=core.utils.upload_image.upload_user_thumbnail, validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])])),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile', to=settings.AUTH_USER_MODEL, verbose_name='usuario id')),
