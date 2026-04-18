@@ -1,4 +1,5 @@
 import os
+import uuid
 from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.indexes import GistIndex
@@ -6,9 +7,9 @@ from django.core.validators import FileExtensionValidator
 
 from core.models import BaseModel
 from core.utils.upload_image import (
-    route_photo_path,
-    spot_photo_path,
-    spot_thumbnail_path,
+    upload_route_photo,
+    upload_spot_photo,
+    upload_spot_thumbnail,
 )
 
 # from django.contrib.auth import get_user_model
@@ -37,11 +38,12 @@ def get_rejected():
     return SpotStatusReview.objects.get(key='REJECTED').id
 
 class Spot(BaseModel):
+    storage_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spots_created')
     name = models.CharField(max_length=50)
     description = models.TextField()
     spot_thumbnail_path = models.ImageField(
-        upload_to= spot_thumbnail_path ,
+        upload_to= upload_spot_thumbnail ,
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
@@ -68,34 +70,12 @@ class Spot(BaseModel):
     def __str__(self):
         return f"{self.name}"
     
-    def delete(self, *args, **kwargs):
-        """Eliminar thumbnail al borrar el spot"""
-        if self.spot_thumbnail_path:
-            try:
-                if os.path.isfile(self.spot_thumbnail_path.path):
-                    os.remove(self.spot_thumbnail_path.path)
-            except (ValueError, AttributeError):
-                pass
-        super().delete(*args, **kwargs)
-    
-    def save(self, *args, **kwargs):
-        """Eliminar thumbnail anterior si se cambia"""
-        if self.pk:  # Si ya existe
-            try:
-                old = Spot.objects.get(pk=self.pk)
-                if old.spot_thumbnail_path and old.spot_thumbnail_path != self.spot_thumbnail_path:
-                    if os.path.isfile(old.spot_thumbnail_path.path):
-                        os.remove(old.spot_thumbnail_path.path)
-            except Spot.DoesNotExist:
-                pass
-        super().save(*args, **kwargs)
-    
 class SpotCaption(BaseModel):
     spot = models.ForeignKey(Spot, on_delete=models.CASCADE, related_name='captions')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='captions_made')
     description = models.TextField(blank=True, null=True)
     img_path = models.ImageField(
-        upload_to=spot_photo_path,
+        upload_to=upload_spot_photo,
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
@@ -187,7 +167,7 @@ class RoutePhoto(BaseModel):
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='photo')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='photo_by')
     img_path = models.ImageField(
-        upload_to=route_photo_path,
+        upload_to=upload_route_photo,
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
