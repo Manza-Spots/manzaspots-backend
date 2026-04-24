@@ -133,7 +133,7 @@ class GoogleIDTokenAdapter(GoogleOAuth2Adapter):
         id_token_str = token.token
 
         try:
-            idinfo = id_token.verify_oauth2_token(id_token_str)
+            idinfo = self.validate_token(id_token_str) 
         except ValueError as e:
             raise OAuth2Error(f"ID token inválido: {e}")
 
