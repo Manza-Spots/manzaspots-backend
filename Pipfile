@@ -35,7 +35,7 @@ whitenoise = "*"
 gunicorn = "*"
 django-storages = "*"
 boto3 = "*"
-django = "*"
+
 
 [dev-packages]
 
