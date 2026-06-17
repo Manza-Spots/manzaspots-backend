@@ -4,7 +4,7 @@ from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 from django.db.models import DecimalField, Sum, Value
-from core.utils.upload_image import user_thumbnail_path
+from core.utils.upload_image import upload_user_thumbnail
 from spots_routes.models import Route, Spot
 from django.contrib.auth.models import AbstractUser
 
@@ -17,7 +17,7 @@ class User(AbstractUser):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, verbose_name=("usuario id"), on_delete=models.CASCADE, related_name='profile')
     profile_thum_path = models.ImageField(
-        upload_to= user_thumbnail_path ,
+        upload_to= upload_user_thumbnail ,
         validators=[
             FileExtensionValidator(
                 allowed_extensions=['jpg', 'jpeg', 'png', 'webp']
