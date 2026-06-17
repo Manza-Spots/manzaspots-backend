@@ -32,6 +32,8 @@ google-auth = "*"
 async-timeout = "*"
 whitenoise = "*"
 gunicorn = "*"
+django-storages = "*"
+boto3 = "*"
 
 [dev-packages]
 
