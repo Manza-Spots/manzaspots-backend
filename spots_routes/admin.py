@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.gis import admin as gis_admin
 from django.utils.html import format_html
 from django.contrib.admin import DateFieldListFilter
+
+from core.mixins import SoftDeleteAdminMixin
 from .models import (
     SpotStatusReview, Spot, SpotCaption, UserFavoriteSpot,
     Difficulty, TravelMode, Route, RoutePhoto, UserFavoriteRoute
@@ -33,7 +35,7 @@ def desactivar_spots(modeladmin, request, queryset):
 
 
 @admin.register(Spot)
-class SpotAdmin(gis_admin.GISModelAdmin):
+class SpotAdmin(SoftDeleteAdminMixin, gis_admin.GISModelAdmin):
     # UBICACION DE MANZA
     gis_widget_kwargs = {
         'attrs': {

@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 django = "*"
+gunicorn = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 django-cors-headers = "*"
@@ -34,6 +35,7 @@ whitenoise = "*"
 gunicorn = "*"
 django-storages = "*"
 boto3 = "*"
+
 
 [dev-packages]
 

@@ -3,105 +3,56 @@ import os
 from datetime import datetime
 from uuid import uuid4
 
-def upload_image_path(base_folder, instance, filename, use_spot=False, use_route=False):
-    """
-    Función genérica para generar rutas de upload de imágenes.
-    
-    Args:
-        base_folder: Carpeta base ('spots', 'routes', etc.)
-        instance: Instancia del modelo
-        filename: Nombre original del archivo (solo usamos la extensión)
-        use_spot: Si True, incluye spot_{id} en la ruta
-        use_route: Si True, incluye route_{id} en la ruta
-    
-    Returns:
-        String con la ruta completa
-    """
-    # Obtener solo la extensión del archivo original
-    ext = filename.split('.')[-1].lower()
-    
-    # Validar extensión (seguridad adicional)
-    allowed_extensions = ['jpg', 'jpeg', 'png', 'webp']
-    if ext not in allowed_extensions:
-        ext = 'jpg'  # Default fallback
-    
-    # Obtener fecha actual
-    now = datetime.now()
-    year = now.strftime('%Y')
-    month = now.strftime('%m')
-    
-    # Generar nombre único y descriptivo
-    # Formato: userid_timestamp_uuid.ext
-    timestamp = now.strftime('%Y%m%d_%H%M%S')
-    unique_id = str(uuid4())[:8]  # Primeros 8 caracteres del UUID
-    new_filename = f"{instance.user.id}_{timestamp}_{unique_id}.{ext}"
-    
-    # Construir la ruta según los parámetros
-    path_parts = [base_folder]
-    
-    if use_spot and hasattr(instance, 'spot'):
-        path_parts.append(f'spot_{instance.spot.id}')
-    
-    if use_route and hasattr(instance, 'route'):
-        path_parts.append(f'route_{instance.route.id}')
-    
-    # Agregar año/mes
-    path_parts.extend([year, month])
-    
-    # Agregar nombre de archivo
-    path_parts.append(new_filename)
-    
-    return os.path.join(*path_parts)
+def generate_upload_path(base_folder, instance, filename, purpose='general', owner_field=None):
+    ext = os.path.splitext(filename)[1].lower().lstrip('.')
+    if ext not in ('jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov'):
+        ext = 'jpg'
 
-# Funciones wrapper específicas para cada tipo
-def spot_photo_path(instance, filename):
+    if owner_field:
+        owner = getattr(instance, owner_field)
+        owner_id = owner.pk
+    else:
+        owner_id = instance.storage_id  
+    unique_name = uuid4().hex[:12]
+    return f"{base_folder}/{owner_id}/{purpose}/{unique_name}.{ext}"
+
+
+def upload_spot_photo(instance, filename):
     """
     Ruta para fotos de spots
-    Resultado: spots/spot_123/2025/01/5_20250115_143022_a1b2c3d4.jpg
+    Resultado: Spots/{spot_storage_id}/Photos/{unique_name}.ext
     """
-    return upload_image_path('spots', instance, filename, use_spot=True)
+    ext = os.path.splitext(filename)[1].lower().lstrip('.')
+    if ext not in ('jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov'):
+        ext = 'jpg'
+    unique_name = uuid4().hex[:12]
+    spot_uuid = instance.spot.storage_id  
+    return f"Spots/{spot_uuid}/Photos/{unique_name}.{ext}"
 
-def route_photo_path(instance, filename):
+def upload_route_photo(instance, filename):
     """
     Ruta para fotos de rutas
-    Resultado: routes/spot_123/route_456/2025/01/5_20250115_143022_a1b2c3d4.jpg
+    Resultado: Spots/{spot_storage_id}/Routes/{unique_name}.ext
     """
-    return upload_image_path('routes', instance, filename, use_spot=True, use_route=True)
+    ext = os.path.splitext(filename)[1].lower().lstrip('.')
+    if ext not in ('jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov'):
+        ext = 'jpg'
+    unique_name = uuid4().hex[:12]
+    spot_uuid = instance.route.spot.storage_id  
+    return f"Spots/{spot_uuid}/Routes/{unique_name}.{ext}"
 
-def spot_thumbnail_path(instance, filename):
+
+def upload_spot_thumbnail(instance, filename):
     """
     Ruta para la miniatura del spot
-    Resultado: spot_thumbnails/spot_1.jpg
+    Resultado: spots/spot_id/Thumbnail/uuid
     """
-    ext = filename.split('.')[-1].lower()
-    
-    # Validar extensión
-    allowed_extensions = ['jpg', 'jpeg', 'png', 'webp']
-    if ext not in allowed_extensions:
-        ext = 'jpg'
-    
-    # Si es nuevo (aún no tiene ID), usar timestamp temporal
-    if instance.pk is None:
-        unique_id = str(uuid4())[:8]
-        return f'spot_thumbnails/{unique_id}.{ext}'
-    
-    # Si ya existe, usar el ID del spot
-    return f'spot_thumbnails/spot_{instance.pk}.{ext}'
+    return generate_upload_path('Spots', instance, filename, purpose='Thumbnail')
 
-def user_thumbnail_path(instance, filename):
+def upload_user_thumbnail(instance, filename):
     """
     Ruta para la foto de perfil del usuario
-    Resultado: user_thumbnails/user_id
+    Resultado: Users/user_id/Thumbnail/uuid
     """
-    ext = filename.split('.')[-1].lower()
-    
-    allowed_extensions = ['jpg', 'jpeg', 'png', 'webp']
-    if ext not in allowed_extensions:
-        ext = 'jpg'
-    
-    if instance.pk is None:
-        unique_id = str(uuid4())[:8]
-        return f'user_thumbnails/{unique_id}.{ext}'
-    
-    return f'user_thumbnails/user_{instance.pk}.{ext}'
+    return generate_upload_path('User', instance, filename, purpose='Thumbnail', owner_field='user')
 

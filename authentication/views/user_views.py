@@ -191,6 +191,14 @@ class VerifyEmailAPIView(SentryErrorHandlerMixin, APIView):
         )
 
         return Response(
-            {"message": UserMessages.EMAIL_UPDATED},
+            {"message": UserMessages.EMAIL_UPDATED,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_staff': user.is_staff
+            }},
             status=status.HTTP_200_OK
         )
