@@ -1,16 +1,16 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
-import os
-import sys
 from decouple import config
 import sentry_sdk
 from rich.logging import RichHandler
-from datetime import timedelta
 import warnings
 import logging.config
 from django.conf import settings
+
 DEBUG = config('DEBUG', cast=bool)
+DOMAIN = config('DOMAIN', default='localhost')
 
 #Porblema de django avienta warnings estupidos toco ignorarlos
 warnings.filterwarnings(
@@ -27,60 +27,18 @@ if not config('DEBUG', default=True, cast=bool):
     sentry_sdk.init(
         dsn=config('SDK_SENTRY', default=None),
         send_default_pii=True,
+        traces_sample_rate=1.0,
     )
 
 
 #----------------------------- CARPETAS RELEVANTES ----------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ─── ESTÁTICOS (siempre igual) ────────────────────────────────────
-STATIC_URL  = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
 LOG_DIR = BASE_DIR / 'logs'
 LOG_DIR.mkdir(exist_ok=True)
 
-
-# ========================================== STORAGE ==========================================
-USE_R2 = config('USE_R2', default=False, cast=bool)
-
-if USE_R2:
-    # ==== Cloudflare R2 ====
-    AWS_ACCESS_KEY_ID = config('R2_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = config('R2_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = config('R2_BUCKET_NAME')
-    AWS_S3_ENDPOINT_URL = f"https://{config('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
-    AWS_S3_REGION_NAME = 'auto'
-    AWS_S3_CUSTOM_DOMAIN = config('R2_PUBLIC_URL').replace('https://', '')
-    AWS_QUERYSTRING_AUTH = False
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
-    }
-
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-
-else:
-    # ==== Local ====
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
 #----------------------------- APPS INSTALADAS ----------------------------------------------------
@@ -100,14 +58,14 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework_gis',
     'storages',
-    
+
     # JWT apps
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'rest_framework.authtoken',
- 
+
     # Django Allauth
     'allauth',
     'allauth.account',
@@ -117,7 +75,7 @@ INSTALLED_APPS = [
 
      # GeoDjango
     'django.contrib.gis',
-    
+
     # Local apps
     'authentication',
     'core',
@@ -130,13 +88,14 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',    
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 
@@ -145,7 +104,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'templates',  
+            BASE_DIR / 'templates',
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -195,9 +154,6 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-#-------------------------------------- STATIC FILES  --------------------------------------------
-STATIC_URL = 'static/'
-
 
 #-------------------------------------- JWT ---------------------------------------------------------
 SIMPLE_JWT = {
@@ -226,9 +182,6 @@ SIMPLE_JWT = {
     'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
 }
 
-# REST_USE_JWT = True
-# JWT_AUTH_COOKIE = 'access'
-# JWT_AUTH_REFRESH_COOKIE = 'refresh'
 
 # ---------------------------------------------- CORS ----------------------------------------
 CORS_ALLOW_ALL_ORIGINS = DEBUG
@@ -238,6 +191,16 @@ CORS_ALLOWED_ORIGINS = config(
     default="",
     cast=lambda v: [s.strip() for s in v.split(",") if s]
 ) if not DEBUG else []
+
+CORS_ALLOW_CREDENTIALS = True
+
+# ---------------------------------------------- CSRF ----------------------------------------
+# NUEVO: sin esto, cualquier POST/PUT desde tu frontend (otro dominio) sera rechazado en produccion.
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="http://localhost:3000,http://localhost:5173",
+    cast=lambda v: [s.strip() for s in v.split(",") if s]
+)
 
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -256,7 +219,7 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_RETURN_EXPIRATION': True,
     'REGISTER_SERIALIZER': 'dj_rest_auth.registration.serializers.RegisterSerializer',
-    'TOKEN_MODEL': None,  
+    'TOKEN_MODEL': None,
 }
 
 #---------------------------------------------- ALL AUTH -----------------------------------------------------
@@ -269,16 +232,19 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_ADAPTER = 'manza_spots.adapters.CustomSocialAccountAdapter'
 
 
-# ---------------------------------------- EMAIL CONFIG -------------------------------------------
+# ---------------------------------------- EMAIL CONFIG -------------------------------------------.
 if 'test' in sys.argv:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  
-EMAIL_USE_TLS = True
+
+EMAIL_HOST = 'smtp.resend.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'resend'
+EMAIL_HOST_PASSWORD = config('RESEND_API_KEY')
+DEFAULT_FROM_EMAIL = f'no-reply@{DOMAIN}'
+EMAIL_TIMEOUT = 10
 
 
 # ---------------------------------------- LOGGING -------------------------------------------
@@ -312,7 +278,7 @@ LOGGING = {
             'level': 'INFO',
             "class": "rich.logging.RichHandler",
             'formatter': 'rich',
-            'rich_tracebacks': True,   
+            'rich_tracebacks': True,
             'markup': True,
             'log_time_format': "%H:%M:%S",
         },
@@ -346,12 +312,12 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'authentication': {  
+        'authentication': {
             'handlers': ['console', 'file', 'error_file'],
             'level': 'INFO',
             'propagate': True,
         },
-        'users': {  
+        'users': {
             'handlers': ['console', 'file', 'error_file'],
             'level': 'INFO',
             'propagate': True,
@@ -375,7 +341,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'key': ''
         }
     },
-    
+
     'facebook': {
         'SCOPE': [
             'email',
@@ -403,15 +369,15 @@ GOOGLE_OAUTH2_ALLOWED_CLIENT_IDS = GOOGLE_CLIENT_IDS
 #No es necesario si se ejecutara desde mac, linux o docker
 if os.name == 'nt':
     OSGEO_PATH = config('OSGEO_PATH')
-    
+
     GDAL_LIBRARY_PATH = os.path.join(OSGEO_PATH, 'bin', config('GDAL_LIBRARY_PATH'))
     GEOS_LIBRARY_PATH = os.path.join(OSGEO_PATH, 'bin', config('GEOS_LIBRARY_PATH'))
-    
+
     # Agrega OSGeo4W al PATH del sistema
     os.environ['PATH'] = os.path.join(OSGEO_PATH, 'bin') + ';' + os.environ['PATH']
     os.environ['PROJ_LIB'] = os.path.join(OSGEO_PATH, 'share', 'proj')
-    
-    
+
+
 #--------------------------------- REST_FRAMEWORK ------------------------------------------------
 #Configuracion de los limites de peticiones de la api
 if config('ACTIVE_RATES', default=False, cast=bool):
@@ -477,7 +443,7 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API para gestión de spots, rutas y perfiles de usuarios',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    
+
     'TAGS': [
         {'name': 'auth', 'description': 'Autenticación, providers y tokens JWT'},
         {'name': 'users', 'description': 'Gestión de usuarios'},
@@ -486,13 +452,13 @@ SPECTACULAR_SETTINGS = {
         {'name': 'spots-favorite', 'description' : 'Spots favoritos'},
         {'name': 'routes', 'description': 'Rutas y recorridos'},
         {'name': 'routes-photos', 'description': 'Fotos de las rutas'},
-        {'name': 'routes-favorite', 'description' : 'Rutas favoritas'},                
+        {'name': 'routes-favorite', 'description' : 'Rutas favoritas'},
     ],
-        
-        
-    'COMPONENT_SPLIT_REQUEST': True,  
+
+
+    'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': r'/api/',   # Prefijo de tus URLs
-    
+
     # Autenticación
     'SECURITY': [{'bearerAuth': []}],
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
@@ -504,17 +470,24 @@ SPECTACULAR_SETTINGS = {
 
 
 #------------------------------ CACHE -------------------------------------------------------------
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f'redis://{os.getenv("REDIS_HOST", "localhost")}:{os.getenv("REDIS_PORT", "6379")}/1',
-        'OPTIONS': {
-            'socket_connect_timeout': 5,
-            'socket_timeout': 5,
+if config('CACHES_REDIS', default=False, cast=bool):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL'),
+            'OPTIONS': {
+                'socket_connect_timeout': 5,
+                'socket_timeout': 5,
+            }
         }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'rate-limit-cache',
+        }
+    }
 
 
 db_config = DATABASES['default']
@@ -542,7 +515,14 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
+#================================================ AUTH BACKEND =====================================================
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
 
 #----------------------------- EXTRAS -----------------------------------------------------------
 SECRET_KEY = config('SECRET_KEY')
@@ -558,12 +538,45 @@ WSGI_APPLICATION = 'manza_spots.wsgi.application'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SITE_ID = 1
 
-#================================================ AUTH BACKEND =====================================================
 
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
+# ========================================== STORAGE (R2 / local) ==========================================
+
+USE_R2 = config('USE_R2', default=False, cast=bool)
+
+if USE_R2:
+    AWS_ACCESS_KEY_ID = config('R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = config('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = config('R2_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = f"https://{config('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+    AWS_S3_REGION_NAME = 'auto'
+    AWS_S3_CUSTOM_DOMAIN = config('R2_PUBLIC_URL').replace('https://', '')
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 #Obligamos a django a crear los loggins
 logging.config.dictConfig(settings.LOGGING)

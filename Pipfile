@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+django = "*"
 gunicorn = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
@@ -30,6 +31,8 @@ psycopg2-binary = "*"
 sqlalchemy = "*"
 google-auth = "*"
 async-timeout = "*"
+whitenoise = "*"
+gunicorn = "*"
 django-storages = "*"
 boto3 = "*"
 django = "*"

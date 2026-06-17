@@ -1,10 +1,15 @@
-FROM python:3.10
+FROM python:3.10-slim
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DJANGO_SETTINGS_MODULE=manza_spots.settings
 
-# Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y \
+WORKDIR /app
+
+# Dependencias de sistema para GeoDjango (GDAL/GEOS/PROJ) + Postgres
+# Se quedan en la imagen final porque django.contrib.gis carga estas
+# librerias en tiempo de ejecucion via ctypes, no solo al compilar.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gdal-bin \
     libgdal-dev \
     binutils \
@@ -13,16 +18,23 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-RUN pip install --no-cache-dir pipenv
-
-COPY Pipfile Pipfile.lock /app/
-RUN pipenv install --system --deploy --dev  # Agrega --dev para dependencias de desarrollo
+COPY requirements.txt /app/
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Usuario sin privilegios (seguridad) — igual que en Coleccion Lorenza
+RUN useradd --no-create-home --shell /bin/false django \
+    && mkdir -p /app/staticfiles /app/logs /app/media \
+    && chown -R django:django /app /entrypoint.sh
+
+USER django
+
 EXPOSE 8000
 
-# En desarrollo el comando lo sobrescribe el compose
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Railway inyecta $PORT automaticamente (normalmente 8000)
+CMD ["/entrypoint.sh"]
