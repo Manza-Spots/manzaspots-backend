@@ -9,6 +9,7 @@ from dj_rest_auth.registration.serializers import SocialLoginSerializer
 
 from core.responses.messages import AuthMessages
 
+
 User = get_user_model()
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -59,13 +60,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 })
 
         return super().validate(attrs)
+
+import re
+USERNAME_REGEX = re.compile(r'^(?=.{5,20}$)[a-zA-Z][a-zA-Z0-9_]*(?<!_)$')
+
 class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer para creación de usuarios con contraseña"""
     password = serializers.CharField(
         write_only=True, required=True,
         validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True, required=True)
-    
+
     class Meta:
         model = User
         fields = ['username', 'password', 'confirm_password', 'email']
@@ -74,23 +79,22 @@ class UserCreateSerializer(serializers.ModelSerializer):
         }
 
     def validate_username(self, value):
-        value = value.strip()  
+        value = value.strip()
 
-        if len(value) < 5:
+        if not USERNAME_REGEX.match(value):
             raise serializers.ValidationError(
-                "El nombre de usuario debe tener al menos 5 caracteres."
+                "El nombre de usuario debe empezar con una letra, "
+                "tener entre 5 y 20 caracteres, y solo puede contener "
+                "letras, números y guion bajo (sin terminar en _)."
             )
-        if not re.match(r'^[a-zA-Z0-9_-]+$', value):
-            raise serializers.ValidationError(
-                "El nombre de usuario solo puede contener letras, números, _ y -"
-            )
+
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError(
                 "Este nombre de usuario ya está en uso."
             )
 
         return value
-    
+
     def validate(self, attrs):
         attrs['email'] = attrs['email'].lower().strip()
 
@@ -103,6 +107,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 "email": "Este email ya está registrado."
             })
         return attrs
+
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
