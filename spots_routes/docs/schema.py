@@ -710,3 +710,73 @@ ROUTE_REMOVE_FAVORITE = {
         404: OpenApiResponse(description="La ruta no está en favoritos"),
     }
 }
+
+
+# docs.py
+
+from drf_spectacular.utils import OpenApiResponse
+from serializer import DifficultySerializer, TravelModeSerializer
+
+
+# ── Difficulty ──────────────────────────────────────────────────────────
+
+DIFFICULTY_LIST = {
+    "summary": "Listar dificultades",
+    "tags": ["difficulties"],
+    "description": (
+        "Obtiene la lista de niveles de dificultad disponibles.\n\n"
+        "- Solo muestra dificultades activas\n"
+        "- No requiere autenticación"
+    ),
+    "responses": {
+        200: OpenApiResponse(
+            description="Listado de dificultades",
+            response=DifficultySerializer(many=True)
+        ),
+    }
+}
+
+DIFFICULTY_RETRIEVE = {
+    "summary": "Obtener detalle de una dificultad",
+    "tags": ["difficulties"],
+    "description": "Obtiene el detalle de un nivel de dificultad específico.",
+    "responses": {
+        200: OpenApiResponse(
+            description="Detalle de la dificultad",
+            response=DifficultySerializer
+        ),
+        404: OpenApiResponse(description="Dificultad no encontrada"),
+    }
+}
+
+
+# ── TravelMode ──────────────────────────────────────────────────────────
+
+TRAVEL_MODE_LIST = {
+    "summary": "Listar modos de viaje",
+    "tags": ["travel-modes"],
+    "description": (
+        "Obtiene la lista de modos de viaje disponibles.\n\n"
+        "- Solo muestra modos de viaje activos\n"
+        "- No requiere autenticación"
+    ),
+    "responses": {
+        200: OpenApiResponse(
+            description="Listado de modos de viaje",
+            response=TravelModeSerializer(many=True)
+        ),
+    }
+}
+
+TRAVEL_MODE_RETRIEVE = {
+    "summary": "Obtener detalle de un modo de viaje",
+    "tags": ["travel-modes"],
+    "description": "Obtiene el detalle de un modo de viaje específico.",
+    "responses": {
+        200: OpenApiResponse(
+            description="Detalle del modo de viaje",
+            response=TravelModeSerializer
+        ),
+        404: OpenApiResponse(description="Modo de viaje no encontrado"),
+    }
+}

@@ -25,25 +25,32 @@ SPOT_UPDATE,
     SPOT_REMOVE_FROM_FAVORITES,
     SPOT_FAVORITES,
     ROUTE_LIST,
+    DIFFICULTY_RETRIEVE,
     ROUTE_RETRIEVE,
     ROUTE_CREATE,
     ROUTE_UPDATE,
     ROUTE_PARTIAL_UPDATE,
     ROUTE_DESTROY,
     ROUTE_ADD_FAVORITE,
-    ROUTE_REMOVE_FAVORITE,)
+    ROUTE_REMOVE_FAVORITE,
+    DIFFICULTY_LIST,
+    DIFFICULTY_LIST,
+    TRAVEL_MODE_LIST,
+    TRAVEL_MODE_RETRIEVE)
 
 User = get_user_model()
 from core.docs.schema_utils import auto_schema, auto_schema_view
 from core.mixins import  ViewSetSentryMixin
 from core.permission import IsOwnerOrAdmin, IsOwnerOrReadOnly
 from spots_routes.filters import RouteFilter, RoutePhotoFilter, SpotFilter
-from spots_routes.models import Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, UserFavoriteRoute, UserFavoriteSpot
+from spots_routes.models import Difficulty, Route, RoutePhoto, Spot, SpotCaption, SpotStatusReview, TravelMode, UserFavoriteRoute, UserFavoriteSpot
 from spots_routes.serializer import (
+    DifficultySerializer,
     SpotCaptionCreateSerializer, 
     SpotCaptionSerializer, 
     SpotSerializer,
-    SpotUpdateSerializer, 
+    SpotUpdateSerializer,
+    TravelModeSerializer, 
     UserFavoriteSpotSerializer,
     RouteSerializer, 
     RoutePhotoSerializer, 
@@ -276,7 +283,7 @@ class UserFavoriteSpotsView(generics.ListAPIView):
         ).select_related('spot').order_by('-created_at')
 
 
-#====================================== ROUTES =================================================
+
 
 @auto_schema_view(
     list=SPOT_CAPTION_LIST,
@@ -333,7 +340,7 @@ class SpotCaptionViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         instance.delete()
 
 
-
+#====================================== ROUTES =================================================
 @auto_schema_view(
     list=ROUTE_LIST,
     retrieve=ROUTE_RETRIEVE,
@@ -560,3 +567,29 @@ class UserFavoriteRouteView(generics.ListAPIView):
             is_active=True,
             route__deleted_at__isnull=True
         ).select_related('route').order_by('-created_at')
+        
+        
+@auto_schema_view(
+    list=DIFFICULTY_LIST,
+    retrieve=DIFFICULTY_RETRIEVE,
+)
+class DifficultyViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet de solo lectura para consultar los niveles de dificultad.
+    """
+    queryset = Difficulty.objects.filter(is_active=True).order_by('name')
+    serializer_class = DifficultySerializer
+    permission_classes = [permissions.AllowAny]
+
+
+@auto_schema_view(
+    list=TRAVEL_MODE_LIST,
+    retrieve=TRAVEL_MODE_RETRIEVE,
+)
+class TravelModeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet de solo lectura para consultar los modos de viaje.
+    """
+    queryset = TravelMode.objects.filter(is_active=True).order_by('name')
+    serializer_class = TravelModeSerializer
+    permission_classes = [permissions.AllowAny]

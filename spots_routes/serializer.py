@@ -172,3 +172,17 @@ class UserFavoriteRouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserFavoriteRoute
         fields = ['id', 'route', 'created_at', 'is_active']
+
+
+class DifficultySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Difficulty
+        fields = ['id', 'name', 'key', 'hex_color']
+        read_only_fields = fields
+
+
+class TravelModeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TravelMode
+        fields = ['id', 'name', 'key']
+        read_only_fields = fields
