@@ -145,8 +145,46 @@ class ErrorMessages:
         INVALID_FILE_TYPE = "Tipo de archivo no permitido."
 
 
+class SpotMessages:
+    SPOT_CREATED = "Spot creado exitosamente y enviado para revisión."
+    SPOT_UPDATED = "Spot actualizado exitosamente."
+    SPOT_DELETED = "Spot eliminado exitosamente."
+    SPOT_APPROVED = "Spot aprobado exitosamente."
+    SPOT_REJECTED = "Spot rechazado exitosamente."
+    SPOT_FAVORITE_ADDED = "Spot agregado a favoritos."
+    SPOT_FAVORITE_REMOVED = "Spot removido de favoritos."
 
+class CaptionMessages:
+    CAPTION_CREATED = "Caption creado exitosamente."
+    CAPTION_UPDATED = "Caption actualizado exitosamente."
+    CAPTION_DELETED = "Caption eliminado exitosamente."
+    CAPTION_NOT_FOUND = "Caption no encontrado."
+    PERMISSION_DENIED_EDIT = "No tienes permisos para editar este caption."
+    PERMISSION_DENIED_DELETE = "No tienes permisos para eliminar este caption."
 
+# core/responses/messages.py (agregar)
 
+class RoutePhotoMessages:
+    PHOTO_CREATED = "Foto subida exitosamente."
+    PHOTO_UPDATED = "Foto actualizada exitosamente."
+    PHOTO_DELETED = "Foto eliminada exitosamente."
+    PHOTO_NOT_FOUND = "Foto no encontrada."
+    PERMISSION_DENIED_EDIT = "No tienes permisos para editar esta foto."
+    PERMISSION_DENIED_DELETE = "No tienes permisos para eliminar esta foto."
+    ROUTE_REQUIRED = "Se requiere el ID de la ruta."
+    
 
-
+class RouteMessages:
+    FAVORITE_ROUTES_LIST = "Lista de rutas favoritas"
+    FAVORITE_ADDED = "Ruta agregada a favoritos"
+    FAVORITE_REMOVED = "Ruta removida de favoritos"
+    ROUTE_CREATED = "Ruta creada exitosamente."
+    ROUTE_UPDATED = "Ruta actualizada exitosamente."
+    ROUTE_DELETED = "Ruta eliminada exitosamente."
+    ROUTE_NOT_FOUND = "Ruta no encontrada."
+    FAVORITE_ADDED = "Ruta añadida a favoritos."
+    FAVORITE_REACTIVATED = "Ruta reactivada en favoritos."
+    FAVORITE_REMOVED = "Ruta eliminada de favoritos."
+    ALREADY_FAVORITE = "Esta ruta ya está en tus favoritos."
+    NOT_IN_FAVORITES = "Esta ruta no está en tus favoritos."
+    PERMISSION_DENIED = "No tienes permisos para realizar esta acción."

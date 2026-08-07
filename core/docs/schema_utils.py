@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 import copy
 
 def auto_schema(**schema_kwargs):
@@ -18,4 +18,46 @@ def auto_schema(**schema_kwargs):
         }
 
         return extend_schema(**kwargs)(cls)
+    return decorator
+
+
+def _build_extend_schema(schema_kwargs, full_code):
+    kwargs = copy.deepcopy(schema_kwargs)
+
+    description = kwargs.get("description", "")
+    kwargs["description"] = f"{description}\n\n**Code:** `{full_code}`"
+
+    responses = kwargs.get("responses", {})
+    kwargs["responses"] = {
+        status_code: (
+            response(full_code) if callable(response) else response
+        )
+        for status_code, response in responses.items()
+    }
+
+    return extend_schema(**kwargs)
+
+
+def auto_schema_view(**action_schemas):
+    """
+    Igual que auto_schema, pero para ViewSets.
+
+    Ejemplo:
+        @auto_schema_view(
+            list=LIST_SCHEMA,
+            retrieve=RETRIEVE_SCHEMA,
+            create=CREATE_SCHEMA,
+            upload=UPLOAD_SCHEMA,
+        )
+    """
+    def decorator(cls):
+        full_code = f"{cls.__module__}.{cls.__qualname__}"
+
+        extend_kwargs = {
+            action_name: _build_extend_schema(schema_kwargs, full_code)
+            for action_name, schema_kwargs in action_schemas.items()
+        }
+
+        return extend_schema_view(**extend_kwargs)(cls)
+
     return decorator
