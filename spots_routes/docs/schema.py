@@ -8,7 +8,7 @@ from core.docs.response import (
     response_429,
 )
 from core.responses.messages import AuthMessages, RouteMessages, SpotMessages
-from spots_routes.serializer import RoutePhotoCreateSerializer, RoutePhotoSerializer, RouteSerializer, SpotCaptionCreateSerializer, SpotCaptionSerializer, SpotSerializer, SpotUpdateSerializer, UserFavoriteRouteSerializer, UserFavoriteSpotSerializer
+from spots_routes.serializer import DifficultySerializer, RoutePhotoCreateSerializer, RoutePhotoSerializer, RouteSerializer, SpotCaptionCreateSerializer, SpotCaptionSerializer, SpotSerializer, SpotUpdateSerializer, TravelModeSerializer, UserFavoriteRouteSerializer, UserFavoriteSpotSerializer
 THROTTLE_HOUR = 3600
 
 # ── Parámetros comunes ──────────────────────────────────────────────────────────
@@ -713,9 +713,6 @@ ROUTE_REMOVE_FAVORITE = {
 
 
 # docs.py
-
-from drf_spectacular.utils import OpenApiResponse
-from serializer import DifficultySerializer, TravelModeSerializer
 
 
 # ── Difficulty ──────────────────────────────────────────────────────────

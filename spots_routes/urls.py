@@ -1,10 +1,16 @@
 from django.urls import include, path
-from spots_routes.views import RoutePhotoViewSet, RouteViewSet, SpotCaptionViewSet, SpotViewSet, UserFavoriteRouteView, UserFavoriteSpotsView
+from spots_routes.views import (
+    RoutePhotoViewSet, RouteViewSet, SpotCaptionViewSet, SpotViewSet,
+    UserFavoriteRouteView, UserFavoriteSpotsView,
+    DifficultyViewSet, TravelModeViewSet,
+)
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 
 router = DefaultRouter()
 router.register(r'spots', SpotViewSet, basename='spots')
+router.register(r'difficulties', DifficultyViewSet, basename='difficulty')
+router.register(r'travel-modes', TravelModeViewSet, basename='travel-mode')
 
 # Recursos anidados bajo spots
 spots_router = NestedDefaultRouter(router, r'spots', lookup='spot')
