@@ -176,6 +176,7 @@ class RoutePhotoMessages:
 
 class RouteMessages:
     FAVORITE_ROUTES_LIST = "Lista de rutas favoritas"
+    USER_ROUTES_LIST = "Lista de rutas del usuario"
     FAVORITE_ADDED = "Ruta agregada a favoritos"
     FAVORITE_REMOVED = "Ruta removida de favoritos"
     ROUTE_CREATED = "Ruta creada exitosamente."

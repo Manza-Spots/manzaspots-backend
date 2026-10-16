@@ -92,6 +92,10 @@ class SpotSerializer(serializers.ModelSerializer):
                 'is_active',
             }
             
+            # El dueño (vista "mis spots") ve el estado de revisión de sus spots.
+            if self.context.get('owner_view'):
+                admin_fields -= {'status_name', 'reject_reason', 'is_active'}
+
             if not user.is_staff:
                 for field in admin_fields:
                     self.fields.pop(field, None)

@@ -1,7 +1,7 @@
 from django.urls import include, path
 from spots_routes.views import (
     RoutePhotoViewSet, RouteViewSet, SpotCaptionViewSet, SpotViewSet,
-    UserFavoriteRouteView, UserFavoriteSpotsView,
+    UserFavoriteRouteView, UserFavoriteSpotsView, UserRoutesView,
     DifficultyViewSet, TravelModeViewSet,
 )
 from rest_framework.routers import DefaultRouter
@@ -24,6 +24,7 @@ routes_router.register(r'photos', RoutePhotoViewSet, basename='route-photos')
 spots_routes_patterns = ([
     path('spots/favorites/', UserFavoriteSpotsView.as_view(), name='user_favorite_spots'),
     path('routes/favorites/', UserFavoriteRouteView.as_view(), name='user_favorite_routes'),
+    path('routes/mine/', UserRoutesView.as_view(), name='user_routes'),
     path('', include(router.urls)),
     path('', include(spots_router.urls)),
     path('', include(routes_router.urls)),

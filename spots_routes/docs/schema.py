@@ -175,7 +175,10 @@ SPOT_DENY = {
 SPOT_MY_SPOTS = {
     "summary": "Mis spots",
     "tags": ["spots"],
-    "description": "Obtiene todos los spots creados por el usuario autenticado.",
+    "description": (
+        "Obtiene todos los spots creados por el usuario autenticado, "
+        "incluidos los pendientes de revisión o rechazados (con `status_name` y `reject_reason`)."
+    ),
     "responses": {
         200: SpotSerializer(many=True),
         401: RESPONSE_401,
@@ -524,6 +527,23 @@ USER_FAVORITE_ROUTES_LIST = {
         200: OpenApiResponse(
             description=RouteMessages.FAVORITE_ROUTES_LIST,
             response=UserFavoriteRouteSerializer(many=True)
+        ),
+        401: RESPONSE_401,
+    }
+}
+
+USER_ROUTES_LIST = {
+    "summary": "Listar rutas del usuario",
+    "tags": ["routes"],
+    "description": (
+        "Obtiene las rutas creadas por el usuario autenticado (historial de recorridos).\n\n"
+        "- Solo muestra rutas activas\n"
+        "- Requiere autenticación"
+    ),
+    "responses": {
+        200: OpenApiResponse(
+            description=RouteMessages.USER_ROUTES_LIST,
+            response=RouteSerializer(many=True)
         ),
         401: RESPONSE_401,
     }
