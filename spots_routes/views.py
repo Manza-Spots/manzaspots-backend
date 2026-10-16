@@ -14,7 +14,7 @@ from drf_spectacular.utils import (
 )
 from django.contrib.auth import get_user_model
 
-from spots_routes.docs.schema import (ROUTE_PHOTO_CREATE, ROUTE_PHOTO_DESTROY, ROUTE_PHOTO_LIST, ROUTE_PHOTO_MY_PHOTOS, ROUTE_PHOTO_PARTIAL_UPDATE, ROUTE_PHOTO_RETRIEVE, ROUTE_PHOTO_UPDATE, SPOT_CAPTION_CREATE, SPOT_CAPTION_DESTROY, SPOT_CAPTION_LIST, SPOT_CAPTION_PARTIAL_UPDATE, SPOT_CAPTION_RETRIEVE, SPOT_CAPTION_UPDATE, USER_FAVORITE_ROUTES_LIST, USER_FAVORITE_SPOTS_LIST,SPOT_CREATE, SPOT_LIST, SPOT_RETRIEVE,
+from spots_routes.docs.schema import (ROUTE_PHOTO_CREATE, ROUTE_PHOTO_DESTROY, ROUTE_PHOTO_LIST, ROUTE_PHOTO_MY_PHOTOS, ROUTE_PHOTO_PARTIAL_UPDATE, ROUTE_PHOTO_RETRIEVE, ROUTE_PHOTO_UPDATE, SPOT_CAPTION_CREATE, SPOT_CAPTION_DESTROY, SPOT_CAPTION_LIST, SPOT_CAPTION_PARTIAL_UPDATE, SPOT_CAPTION_RETRIEVE, SPOT_CAPTION_UPDATE, USER_FAVORITE_ROUTES_LIST, USER_FAVORITE_SPOTS_LIST, USER_ROUTES_LIST,SPOT_CREATE, SPOT_LIST, SPOT_RETRIEVE,
 SPOT_UPDATE,
     SPOT_PARTIAL_UPDATE,
     SPOT_DESTROY,
@@ -100,7 +100,15 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        queryset = Spot.objects
+        # `Spot.objects` solo trae spots activos (aprobados). Los admins necesitan
+        # ver también los pendientes/rechazados para moderarlos: al listar con
+        # `?status=` y en el resto de acciones (detalle, authorize, deny...).
+        is_staff = user.is_authenticated and user.is_staff
+        moderating = self.action != "list" or "status" in self.request.query_params
+        if is_staff and moderating:
+            queryset = Spot.all_objects.filter(deleted_at__isnull=True)
+        else:
+            queryset = Spot.objects
 
         if self.action in ("list", "retrieve"):
             if not user.is_authenticated or not user.is_staff:
@@ -163,12 +171,17 @@ class SpotViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def my_spots(self, request):
         """Spots del usuario actual"""
-        queryset = Spot.objects.filter(
+        # Incluye los spots pendientes de revisión o rechazados: el dueño
+        # necesita verlos (con su estado) aunque aún no sean públicos.
+        queryset = Spot.all_objects.filter(
             user=request.user,
             deleted_at__isnull=True,
-            is_active=True,
-        ).order_by('-created_at')
-        serializer = self.get_serializer(queryset, many=True)
+        ).select_related('status').order_by('-created_at')
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+            context={**self.get_serializer_context(), 'owner_view': True},
+        )
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
@@ -369,6 +382,11 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
         queryset = Route.objects.filter(is_active=True).select_related(
             'user', 'difficulty', 'travel_mode', 'spot'
         )
+
+        # Rutas anidadas: /spots/{spot_pk}/routes/ solo devuelve las del spot.
+        spot_id = self.kwargs.get('spot_pk')
+        if spot_id:
+            queryset = queryset.filter(spot_id=spot_id)
         
         # Solo cargar fotos si:
         # 1. Es acción retrieve O
@@ -569,6 +587,23 @@ class UserFavoriteRouteView(generics.ListAPIView):
         ).select_related('route').order_by('-created_at')
         
         
+@auto_schema(**USER_ROUTES_LIST)
+class UserRoutesView(generics.ListAPIView):
+    """
+    Vista para listar las rutas creadas por el usuario (historial).
+    """
+    serializer_class = RouteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Route.objects.filter(
+            user=self.request.user,
+            is_active=True,
+        ).select_related(
+            'user', 'difficulty', 'travel_mode', 'spot'
+        ).prefetch_related('photo').order_by('-created_at')
+
+
 @auto_schema_view(
     list=DIFFICULTY_LIST,
     retrieve=DIFFICULTY_RETRIEVE,
