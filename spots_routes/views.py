@@ -1,5 +1,6 @@
 from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework import viewsets, status, generics,permissions
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
@@ -421,9 +422,17 @@ class RouteViewSet(ViewSetSentryMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         Asigna automáticamente el usuario autenticado al crear una ruta y el spot del path.
+
+        Además de los spots publicados, el dueño puede agregar rutas a su propio
+        spot en revisión: la app propone el spot al terminar de grabar una ruta y
+        la guarda en él de inmediato. Un spot pendiente nace inactivo y no es
+        público, así que sus rutas tampoco se ven hasta que se apruebe.
         """
         spot_id = self.kwargs.get('spot_pk')
-        spot = get_object_or_404(Spot, pk=spot_id, is_active=True)
+        spots = Spot.all_objects.filter(deleted_at__isnull=True).filter(
+            Q(is_active=True) | Q(user=self.request.user, status__key='PENDING')
+        )
+        spot = get_object_or_404(spots, pk=spot_id)
         serializer.save(
             user=self.request.user,
             spot=spot

@@ -105,3 +105,41 @@ class RouteListingTests(TestCase):
     def test_catalogos_sembrados(self):
         self.assertTrue(Difficulty.objects.filter(key='EASY').exists())
         self.assertTrue(TravelMode.objects.filter(key='WALKING').exists())
+
+
+class RouteOnPendingSpotTests(TestCase):
+    """El dueño guarda su ruta en el spot que acaba de proponer (aún en revisión)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(username='owner2', email='o2@example.com', password='x')
+        self.other = User.objects.create_user(username='other2', email='x2@example.com', password='x')
+        self.pending = make_spot(self.owner, 'PENDING', name='Propuesto')
+        self.payload = {
+            'path': {'type': 'LineString', 'coordinates': [[-104.32, 19.04], [-104.31, 19.05]]},
+            'difficulty': 'EASY',
+            'travel_mode': 'WALKING',
+        }
+
+    def post_route(self, spot):
+        return self.client.post(f'/api/v1/spots/{spot.id}/routes/', self.payload, format='json')
+
+    def test_dueno_agrega_ruta_a_su_spot_pendiente(self):
+        self.client.force_authenticate(self.owner)
+        response = self.post_route(self.pending)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(Route.objects.filter(spot=self.pending, user=self.owner).exists())
+
+    def test_otro_usuario_no_agrega_ruta_a_spot_pendiente_ajeno(self):
+        self.client.force_authenticate(self.other)
+        self.assertEqual(self.post_route(self.pending).status_code, 404)
+
+    def test_no_se_agrega_ruta_a_spot_rechazado(self):
+        rejected = make_spot(self.owner, 'REJECTED', name='Rechazado')
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.post_route(rejected).status_code, 404)
+
+    def test_spot_publicado_sigue_aceptando_rutas_de_cualquiera(self):
+        approved = make_spot(self.other, 'APPROVED', name='Publicado')
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(self.post_route(approved).status_code, 201)
