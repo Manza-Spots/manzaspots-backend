@@ -8,6 +8,7 @@ from rich.logging import RichHandler
 import warnings
 import logging.config
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 DEBUG = config('DEBUG', cast=bool)
 DOMAIN = config('DOMAIN', default='localhost')
@@ -233,18 +234,34 @@ SOCIALACCOUNT_ADAPTER = 'manza_spots.adapters.CustomSocialAccountAdapter'
 
 
 # ---------------------------------------- EMAIL CONFIG -------------------------------------------.
-if 'test' in sys.argv:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-else:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-EMAIL_HOST = 'smtp.resend.com'
+# EMAIL_PROVIDER elige el envío:
+#   resend  -> despliegue. Exige que el dominio del remitente esté verificado en Resend.
+#   gmail   -> desarrollo local con una cuenta de Gmail y su contraseña de aplicación.
+#   console -> imprime los correos en el log, sin enviarlos.
+EMAIL_PROVIDER = config('EMAIL_PROVIDER', default='resend').lower()
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = config('RESEND_API_KEY')
-DEFAULT_FROM_EMAIL = f'no-reply@{DOMAIN}'
 EMAIL_TIMEOUT = 10
+
+if 'test' in sys.argv or EMAIL_PROVIDER == 'console':
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+elif EMAIL_PROVIDER == 'gmail':
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+elif EMAIL_PROVIDER == 'resend':
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.resend.com'
+    EMAIL_HOST_USER = 'resend'
+    EMAIL_HOST_PASSWORD = config('RESEND_API_KEY')
+else:
+    raise ImproperlyConfigured(f"EMAIL_PROVIDER inválido: '{EMAIL_PROVIDER}' (usa resend, gmail o console)")
+
+# Gmail siempre envía como la cuenta autenticada, así que el remitente es esa cuenta.
+# Resend rechaza (550) cualquier remitente de un dominio que no esté verificado.
+_default_sender = config('EMAIL_HOST_USER', default='') if EMAIL_PROVIDER == 'gmail' else f'no-reply@{DOMAIN}'
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=f'Manza Spots <{_default_sender}>')
 
 
 # ---------------------------------------- LOGGING -------------------------------------------

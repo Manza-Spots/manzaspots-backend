@@ -1,7 +1,4 @@
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-
+from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -32,7 +29,7 @@ class EmailService:
             result = send_mail(
                 subject,
                 plain_message,
-                'noreply@tuapp.com',
+                settings.DEFAULT_FROM_EMAIL,
                 [to_email],
                 html_message=html_content
             )
